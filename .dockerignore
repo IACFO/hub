@@ -1,0 +1,9 @@
+.venv
+.env
+.env.*
+data
+credentials
+.git
+__pycache__
+*.pyc
+.adk

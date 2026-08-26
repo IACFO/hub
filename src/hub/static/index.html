@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Hub</title>
+  <link rel="stylesheet" href="/static/app.css"/>
+</head>
+<body>
+  <aside class="rail">
+    <div class="brand">
+      <span class="mark">H</span>
+      <div>
+        <strong>Hub</strong>
+        <small>arquivo vivo</small>
+      </div>
+    </div>
+    <nav id="folders" class="folders"></nav>
+    <div class="rail-foot">
+      Captura no Telegram<br/>Ação no Calendar
+    </div>
+  </aside>
+  <main>
+    <header class="top">
+      <label class="search">
+        <span>Buscar</span>
+        <input id="q" type="search" placeholder="boleto, treino, instagram, CNH, suno…" autocomplete="off"/>
+      </label>
+      <div class="filters" id="statusFilters"></div>
+    </header>
+    <section id="grid" class="grid"></section>
+  </main>
+  <aside id="drawer" class="drawer hidden" hidden></aside>
+  <script src="/static/app.js"></script>
+</body>
+</html>
