@@ -23,9 +23,10 @@ Passo a passo do que **voce** precisa ligar (Telegram, Cloud Console, OAuth, cre
 
 ## Stack
 
-- Gemini 3.6 Flash via AI Studio
+- Gemini 3.6 Flash via **Vertex AI** (creditos GCP); AI Studio so como fallback
 - Google ADK (agente + tools)
 - Telegram (captura)
-- Google Calendar + Drive (acao)
-- Firestore + Cloud Storage + Cloud Run (quando o credito GCP entrar)
-- Fallback local JSON enquanto as APIs Cloud nao estao ligadas
+- Google Calendar + Drive + Gmail (acao com confirmacao)
+- Firestore + Cloud Storage + Cloud Run (deploy: `scripts/deploy_cloud_run.ps1`)
+- Gemma (arquivista), Veo (recap da semana), Lyria (tema da Agenda da semana)
+- Fallback local JSON enquanto Firestore/GCS nao estao ligados no `.env`

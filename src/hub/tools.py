@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
+
 from hub.schema import (
     AgentTraceStep,
     CalendarProposal,
     Category,
     CheckItem,
+    EmailProposal,
     FinancialFact,
     InboxItem,
     Priority,
@@ -65,8 +68,25 @@ def _category(value: str) -> Category:
     raw = _CATEGORY_ALIASES.get(raw, raw)
     return raw if raw in _CATEGORIES else "outros"  # type: ignore[return-value]
 
+def _normalize_folder(value: str | None) -> str | None:
+    if not value:
+        return None
+    name = re.sub(r"\s+", " ", value.strip())[:32]
+    if not re.fullmatch(r"[\wÀ-ÿ][\wÀ-ÿ \-]*", name, flags=re.I):
+        return None
+    return name
+
+
+from pathlib import Path
+
 from hub.store import store
-from hub.workspace import create_calendar_event, load_user_credentials, upload_drive_file
+from hub.workspace import (
+    create_calendar_event,
+    has_gmail_send,
+    load_user_credentials,
+    send_gmail,
+    upload_drive_file,
+)
 
 
 def save_inbox_item(
@@ -80,8 +100,10 @@ def save_inbox_item(
     folder: str | None = None,
     kind: str | None = None,
     title: str | None = None,
+    subtitle: str | None = None,
     url: str | None = None,
     body: str | None = None,
+    subfolder: str | None = None,
 ) -> dict:
     """Persist a structured inbox item. Call this once per capture after extracting meaning."""
     item = store.get(item_id) if item_id else None
@@ -110,12 +132,18 @@ def save_inbox_item(
     item.raw_text = raw_text or item.raw_text
     item.tags = tags or item.tags
     item.key_insights = key_insights or item.key_insights
-    if folder:
-        item.folder = folder
+    named = _normalize_folder(folder)
+    if named:
+        item.folder = named
+    sub = _normalize_folder(subfolder)
+    if sub:
+        item.subfolder = sub
     if kind and kind in _KINDS:
         item.kind = kind  # type: ignore[assignment]
     if title:
         item.title = title
+    if subtitle:
+        item.subtitle = subtitle
     if url:
         item.url = url
     if body:
@@ -149,19 +177,28 @@ def organize_item(
     folder: str,
     kind: str = "note",
     title: str | None = None,
+    subtitle: str | None = None,
     url: str | None = None,
+    subfolder: str | None = None,
 ) -> dict:
-    """Put the capture in a theme folder. folder: Inbox, Agenda, Financas, Compras, Documentos, Links, Treino, Prompts, Ideias, Saude."""
+    """Put the capture in a theme folder. Use a known folder or create a short new one (Fotos, Musica)."""
     item = store.get(item_id)
     if item is None:
         return {"status": "error", "message": f"item {item_id} not found"}
-    item.folder = folder or item.folder
+    named = _normalize_folder(folder)
+    if named:
+        item.folder = named
     if kind in _KINDS:
         item.kind = kind  # type: ignore[assignment]
     if title:
         item.title = title
+    if subtitle:
+        item.subtitle = subtitle
     if url:
         item.url = url
+    sub = _normalize_folder(subfolder)
+    if sub:
+        item.subfolder = sub
     item.status = "active"
     item.trace.append(AgentTraceStep(kind="organize", detail=f"{item.folder}/{item.kind}"))
     store.upsert(item)
@@ -253,26 +290,45 @@ def save_financial_fact(
     due_at: str | None = None,
     kind: str = "desconhecido",
     barcode: str | None = None,
+    category: str = "outros",
+    occurred_at: str | None = None,
 ) -> dict:
-    """Store extracted money data from a receipt, invoice, or Brazilian boleto."""
+    """Append a money line (gasto, boleto or receita). Call once per amount in the capture."""
     item = store.get(item_id)
     if item is None:
         return {"status": "error", "message": f"item {item_id} not found"}
     kind_norm = (kind or "desconhecido").lower()
     if kind_norm not in {"gasto", "boleto", "receita", "desconhecido"}:
         kind_norm = "desconhecido"
-    item.financial = FinancialFact(
+    cat = (category or "outros").lower()
+    from hub.schema import FINANCE_CATEGORIES
+
+    if cat not in FINANCE_CATEGORIES:
+        cat = "renda" if kind_norm == "receita" else "outros"
+    fact = FinancialFact(
         amount=amount,
         merchant=merchant,
         due_at=due_at,
-        kind=kind_norm,  # type: ignore[arg-type]
+        occurred_at=occurred_at or due_at,
+        category=cat,
+        kind=kind_norm,  # type: ignore[assignment]
         barcode=barcode,
     )
+    item.financials.append(fact)
+    item.financial = fact
+    item.folder = "Financas"
+    item.kind = "finance"
+    if kind_norm == "receita":
+        item.subfolder = item.subfolder or "Receitas"
+    elif kind_norm == "boleto":
+        item.subfolder = item.subfolder or "Boletos"
+    else:
+        item.subfolder = item.subfolder or "Gastos"
     item.trace.append(
         AgentTraceStep(kind="financial", detail=f"{kind} {merchant} {amount} due {due_at}")
     )
     store.upsert(item)
-    return {"status": "saved", "item_id": item_id, "financial": item.financial.model_dump()}
+    return {"status": "saved", "item_id": item_id, "count": len(item.financials), "financial": fact.model_dump()}
 
 
 def search_inbox(query: str, user_id: str) -> dict:
@@ -338,6 +394,126 @@ def today_iso() -> dict:
     return {"now": now_iso(), "timezone": "America/Sao_Paulo"}
 
 
+def list_user_documents(user_id: str) -> dict:
+    """List documents already in Hub (CV, CNH, PDFs) so you can attach the right file."""
+    docs = []
+    for item in store.list_items(user_id=user_id, limit=200):
+        if item.kind == "document" or item.folder == "Documentos":
+            docs.append(
+                {
+                    "id": item.id,
+                    "title": item.title or item.summary,
+                    "has_file": bool(item.media_paths),
+                }
+            )
+    return {"documents": docs}
+
+
+def _find_cv(user_id: str) -> tuple[str | None, str]:
+    scored: list[tuple[int, str]] = []
+    for item in store.list_items(user_id=user_id, limit=200):
+        blob = f"{item.title} {item.summary} {' '.join(item.tags)}".lower()
+        if not item.media_paths:
+            continue
+        score = 0
+        if any(w in blob for w in ("curriculo", "currículo", "resume")) or re.search(
+            r"\bcv\b", blob
+        ):
+            score += 5
+        if item.folder == "Documentos":
+            score += 1
+        if score >= 5:
+            scored.append((score, item.media_paths[0]))
+    scored.sort(reverse=True)
+    if not scored:
+        return None, ""
+    path = scored[0][1]
+    return path, Path(path).name
+
+
+def _find_cv_path(user_id: str) -> str | None:
+    path, _ = _find_cv(user_id)
+    return path
+
+
+def propose_email(
+    item_id: str,
+    to: str,
+    subject: str,
+    body: str,
+    attach_cv: bool = True,
+) -> dict:
+    """Draft a CV email. Telegram asks twice before sending. Never send from this tool."""
+    item = store.get(item_id)
+    if item is None:
+        return {"status": "error", "message": f"item {item_id} not found"}
+    proposal = EmailProposal(to=to.strip(), subject=subject, body=body, attach_cv=attach_cv)
+    item.emails.append(proposal)
+    cv_path, cv_name = _find_cv(item.user_id)
+    item.trace.append(AgentTraceStep(kind="propose_email", detail=f"{to} cv={bool(cv_path)}"))
+    store.upsert(item)
+    return {
+        "status": "proposed",
+        "email_id": proposal.id,
+        "to": proposal.to,
+        "cv_found": cv_path is not None,
+        "cv_name": cv_name,
+        "gmail_ready": has_gmail_send(load_user_credentials()),
+        "needs_two_step_confirmation": True,
+    }
+
+
+def mark_email_preview(item_id: str, email_id: str) -> dict:
+    """First Telegram yes: freeze the draft so the user can read it before send."""
+    item = store.get(item_id)
+    if item is None:
+        return {"status": "error", "message": f"item {item_id} not found"}
+    for proposal in item.emails:
+        if proposal.id != email_id:
+            continue
+        if proposal.status not in {"proposed", "preview"}:
+            return {"status": "error", "message": f"email already {proposal.status}"}
+        proposal.status = "preview"
+        cv_path, cv_name = _find_cv(item.user_id)
+        item.trace.append(AgentTraceStep(kind="email_preview", detail=proposal.to))
+        store.upsert(item)
+        return {
+            "status": "preview",
+            "email_id": proposal.id,
+            "to": proposal.to,
+            "subject": proposal.subject,
+            "body": proposal.body,
+            "attach_cv": proposal.attach_cv,
+            "cv_found": cv_path is not None,
+            "cv_name": cv_name or "(nenhum arquivo de CV encontrado)",
+        }
+    return {"status": "error", "message": "email proposal not found"}
+
+
+def confirm_email(item_id: str, email_id: str) -> dict:
+    """Send only after the user approved the preview."""
+    item = store.get(item_id)
+    if item is None:
+        return {"status": "error", "message": f"item {item_id} not found"}
+    for proposal in item.emails:
+        if proposal.id != email_id:
+            continue
+        if proposal.status != "preview":
+            return {
+                "status": "error",
+                "message": "aprove o preview do email antes de enviar",
+            }
+        attachment = _find_cv_path(item.user_id) if proposal.attach_cv else None
+        result = send_gmail(proposal.to, proposal.subject, proposal.body, attachment)
+        if result.get("status") == "sent":
+            proposal.status = "confirmed"
+            proposal.gmail_id = result.get("gmail_id")
+        item.trace.append(AgentTraceStep(kind="confirm_email", detail=str(result.get("status"))))
+        store.upsert(item)
+        return {"email_id": proposal.id, **result}
+    return {"status": "error", "message": "email proposal not found"}
+
+
 HUB_TOOLS = [
     save_inbox_item,
     add_task,
@@ -346,6 +522,8 @@ HUB_TOOLS = [
     set_item_status,
     propose_calendar_event,
     confirm_calendar_event,
+    propose_email,
+    list_user_documents,
     save_financial_fact,
     search_inbox,
     list_pending_actions,

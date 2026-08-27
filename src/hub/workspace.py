@@ -13,17 +13,22 @@ SCOPES = [
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/gmail.send",
 ]
+GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send"
 
 
 def load_user_credentials() -> Credentials | None:
     ensure_dirs()
     creds: Credentials | None = None
     if TOKEN_PATH.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), scopes=SCOPES)
     if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
-        TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+        try:
+            TOKEN_PATH.write_text(creds.to_json(), encoding="utf-8")
+        except OSError:
+            pass
     if creds and creds.valid:
         return creds
     return None
@@ -115,6 +120,84 @@ def upload_drive_file(path: str, folder_name: str = "Hub") -> dict:
         "status": "uploaded",
         "file_id": created.get("id"),
         "link": created.get("webViewLink"),
+    }
+
+
+def has_gmail_send(creds: Credentials | None) -> bool:
+    if creds is None:
+        return False
+    granted = set(creds.scopes or [])
+    return GMAIL_SEND in granted
+
+
+def send_gmail(
+    to: str,
+    subject: str,
+    body: str,
+    attachment_path: str | None = None,
+) -> dict:
+    creds = load_user_credentials()
+    if creds is None:
+        return {"status": "pending_local", "message": "OAuth nao configurado."}
+    if not has_gmail_send(creds):
+        return {
+            "status": "needs_gmail_oauth",
+            "message": "Falta permissao gmail.send. Rode python scripts/auth_workspace.py de novo.",
+            "to": to,
+        }
+    import base64
+    from email import encoders
+    from email.mime.base import MIMEBase
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    from googleapiclient.discovery import build
+
+    message = MIMEMultipart()
+    message["to"] = to
+    message["subject"] = subject
+    message.attach(MIMEText(body, "plain", "utf-8"))
+    attached = False
+    if attachment_path:
+        from hub.media import read_bytes
+
+        try:
+            payload = read_bytes(attachment_path)
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "status": "error",
+                "message": f"nao consegui ler o CV: {exc}",
+                "to": to,
+            }
+        if not payload:
+            return {"status": "error", "message": "arquivo do CV esta vazio", "to": to}
+        name = attachment_path.rstrip("/").rsplit("/", 1)[-1] or "cv.pdf"
+        main, sub = ("application", "pdf") if name.lower().endswith(".pdf") else ("application", "octet-stream")
+        part = MIMEBase(main, sub)
+        part.set_payload(payload)
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", "attachment", filename=name)
+        message.attach(part)
+        attached = True
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
+    service = build("gmail", "v1", credentials=creds)
+    try:
+        sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
+    except Exception as exc:
+        detail = str(exc)
+        if "accessNotConfigured" in detail or "Gmail API has not been used" in detail:
+            return {
+                "status": "gmail_api_disabled",
+                "message": "Gmail API desligada no projeto GCP. Ligue gmail.googleapis.com e tente de novo.",
+                "to": to,
+            }
+        return {"status": "error", "message": detail[:400], "to": to}
+    return {
+        "status": "sent",
+        "gmail_id": sent.get("id"),
+        "to": to,
+        "subject": subject,
+        "attached": attached,
     }
 
 

@@ -84,20 +84,35 @@ class Store:
                 [
                     item.summary,
                     item.title,
+                    item.subtitle,
                     item.body,
                     item.raw_text,
                     item.folder,
+                    item.subfolder,
                     item.kind,
                     item.category,
                     item.url or "",
                     " ".join(item.tags),
                     " ".join(t.description for t in item.tasks),
                     " ".join(c.text for c in item.checklist),
+                    " ".join(f"{e.to} {e.subject}" for e in item.emails),
                 ]
             ).lower()
             if q in blob:
                 hits.append(item)
         return hits[:30]
+
+    def list_folders(self) -> list[str]:
+        from hub.schema import FOLDERS
+
+        names: list[str] = []
+        seen: set[str] = set()
+        extra = [item.folder for item in self.list_items(limit=200)]
+        for name in [*FOLDERS, *extra]:
+            if name and name not in seen:
+                seen.add(name)
+                names.append(name)
+        return names
 
 
 store = Store()

@@ -8,7 +8,10 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from hub.agent import root_agent
+from hub.classify import extract_url
 from hub.config import APP_NAME, ensure_gemini_env
+from hub.extras import classify_with_gemma
+from hub.links import fetch_url_context
 
 ensure_gemini_env()
 log = logging.getLogger("hub.runner")
@@ -42,11 +45,38 @@ async def run_hub(
             app_name=APP_NAME, user_id=user_id, session_id=session_id
         )
 
+    url = extract_url(text)
+    extra = ""
+    if url:
+        ctx = fetch_url_context(url)
+        extra = (
+            "\n\n[contexto da URL]\n"
+            f"title: {ctx.get('title')}\n"
+            f"description: {ctx.get('description')}\n"
+            f"emails: {', '.join(ctx.get('emails') or []) or 'nenhum'}\n"
+            f"login_walled: {ctx.get('login_walled')}\n"
+            f"snippet: {ctx.get('snippet')}\n"
+        )
+        if ctx.get("login_walled"):
+            extra += (
+                "A pagina exigiu login (comum no LinkedIn). Extraia cargo/empresa "
+                "do snippet se houver. Se nao der para ler o email da vaga, peca "
+                "para colar o texto do post. Nao invente email.\n"
+            )
+
+    filing = classify_with_gemma(text, media_hint=mime_type or "")
+    if filing.get("status") == "ok":
+        extra += (
+            "\n\n[Gemma filing — use como pista, corrija se errado]\n"
+            f"folder={filing.get('folder')} subfolder={filing.get('subfolder')} "
+            f"kind={filing.get('kind')} tags={filing.get('tags')}\n"
+        )
+
     preamble = (
         f"[system] user_id={user_id} item_id={item_id}\n"
         "Este envio e UNICO. Ignore curriculos, CNHs ou listas de mensagens anteriores.\n"
         "Use exatamente esses ids nas tools.\n\n"
-        f"{text}"
+        f"{text}{extra}"
     )
     parts: list[types.Part] = [types.Part(text=preamble)]
     if media_bytes and mime_type:

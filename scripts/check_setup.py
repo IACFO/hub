@@ -17,6 +17,7 @@ from hub.config import (  # noqa: E402
     HUB_USE_FIRESTORE,
     TELEGRAM_BOT_TOKEN,
     TOKEN_PATH,
+    USE_VERTEX,
     gemini_api_key,
 )
 from hub.workspace import load_user_credentials  # noqa: E402
@@ -28,7 +29,7 @@ def flag(ok: bool) -> str:
 
 def main() -> None:
     rows = [
-        (bool(gemini_api_key()), "Gemini API key (.env GEMINI_API_KEY ou GOOGLE_API_KEY)"),
+        (USE_VERTEX or bool(gemini_api_key()), "Vertex AI" if USE_VERTEX else "Gemini API key (AI Studio)"),
         (bool(GEMINI_MODEL), f"Modelo {GEMINI_MODEL}"),
         (bool(TELEGRAM_BOT_TOKEN), "TELEGRAM_BOT_TOKEN (BotFather)"),
         (CLIENT_SECRET_PATH.exists(), f"OAuth desktop JSON em {CLIENT_SECRET_PATH.name}"),
@@ -51,7 +52,7 @@ def main() -> None:
         print("Proximo passo: baixe client_secret.json e rode python scripts/auth_workspace.py")
     else:
         print("Pronto para python -m hub.telegram_bot")
-    sys.exit(1 if not gemini_api_key() else 0)
+    sys.exit(0 if USE_VERTEX or gemini_api_key() else 1)
 
 
 if __name__ == "__main__":

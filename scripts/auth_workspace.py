@@ -15,10 +15,10 @@ from hub.workspace import interactive_login  # noqa: E402
 def main() -> None:
     ensure_dirs()
     print(f"Client secret esperado em: {CLIENT_SECRET_PATH}")
-    print("O browser vai abrir. Aceite o acesso com a conta Google do Calendar.")
+    print("O browser vai abrir. Aceite Calendar, Drive e Gmail (enviar).")
     creds = interactive_login()
     print(f"Token salvo em {TOKEN_PATH}")
-    print("Pronto. Reinicie o bot. Confirmacoes de evento vao para o Google Calendar.")
+    print("Pronto. Reinicie o bot. Confirmacoes de Calendar e envio de CV vao para o Google.")
     if not creds.refresh_token:
         print(
             "Aviso: nao veio refresh_token. No Console, revogue o app em "

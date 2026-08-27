@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 Category = Literal[
     "tarefas",
@@ -21,7 +21,7 @@ Category = Literal[
     "outros",
 ]
 Priority = Literal["alta", "media", "baixa"]
-ActionStatus = Literal["proposed", "confirmed", "done", "cancelled", "failed"]
+ActionStatus = Literal["proposed", "preview", "confirmed", "done", "cancelled", "failed"]
 MediaType = Literal["text", "voice", "audio", "photo", "document", "link", "mixed"]
 ItemKind = Literal[
     "note",
@@ -47,7 +47,26 @@ FOLDERS = [
     "Prompts",
     "Ideias",
     "Saude",
+    "Fotos",
+    "Musica",
 ]
+
+SUBFOLDER_SEEDS = {
+    "Fotos": ["Selfies", "Prints", "Capas", "Pessoal"],
+    "Ideias": ["Pessoal", "Profissional", "Andamento", "Insights", "Curiosidades"],
+    "Links": ["Vagas", "Entretenimento", "Curiosidades", "Noticias"],
+    "Financas": ["Gastos", "Receitas", "Boletos"],
+}
+
+FINANCE_CATEGORIES = (
+    "alimentacao",
+    "transporte",
+    "casa",
+    "saude",
+    "renda",
+    "lazer",
+    "outros",
+)
 
 FOLDER_FROM_CATEGORY = {
     "tarefas": "Agenda",
@@ -92,10 +111,13 @@ class CalendarProposal(BaseModel):
 
 
 class FinancialFact(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("fin"))
     amount: float | None = None
     currency: str = "BRL"
     merchant: str | None = None
     due_at: str | None = None
+    occurred_at: str | None = None
+    category: str = "outros"
     kind: Literal["gasto", "boleto", "receita", "desconhecido"] = "desconhecido"
     barcode: str | None = None
 
@@ -112,6 +134,16 @@ class AgentTraceStep(BaseModel):
     detail: str
 
 
+class EmailProposal(BaseModel):
+    id: str = Field(default_factory=lambda: new_id("eml"))
+    to: str
+    subject: str
+    body: str = ""
+    attach_cv: bool = True
+    status: ActionStatus = "proposed"
+    gmail_id: str | None = None
+
+
 class InboxItem(BaseModel):
     id: str = Field(default_factory=lambda: new_id("itm"))
     user_id: str
@@ -120,7 +152,9 @@ class InboxItem(BaseModel):
     kind: ItemKind = "note"
     status: ItemStatus = "inbox"
     folder: str = "Inbox"
+    subfolder: str = ""
     title: str = ""
+    subtitle: str = ""
     url: str | None = None
     body: str = ""
     raw_text: str = ""
@@ -130,7 +164,9 @@ class InboxItem(BaseModel):
     tasks: list[TaskItem] = Field(default_factory=list)
     calendar: list[CalendarProposal] = Field(default_factory=list)
     checklist: list[CheckItem] = Field(default_factory=list)
+    emails: list[EmailProposal] = Field(default_factory=list)
     financial: FinancialFact | None = None
+    financials: list[FinancialFact] = Field(default_factory=list)
     key_insights: list[str] = Field(default_factory=list)
     media_paths: list[str] = Field(default_factory=list)
     telegram_chat_id: int | None = None
@@ -140,5 +176,18 @@ class InboxItem(BaseModel):
     created_at: str = Field(default_factory=now_iso)
     updated_at: str = Field(default_factory=now_iso)
 
+    @model_validator(mode="after")
+    def _sync_financials(self):
+        if self.financial and not self.financials:
+            self.financials = [self.financial]
+        elif self.financials and not self.financial:
+            self.financial = self.financials[0]
+        return self
+
     def display_title(self) -> str:
         return self.title or self.summary or (self.raw_text[:80] if self.raw_text else self.id)
+
+    def money(self) -> list[FinancialFact]:
+        if self.financials:
+            return self.financials
+        return [self.financial] if self.financial else []
