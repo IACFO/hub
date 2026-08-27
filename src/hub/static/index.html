@@ -1,46 +1,50 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hub</title>
-  <link rel="stylesheet" href="/static/app.css?v=4"/>
+  <link rel="stylesheet" href="/static/app.css?v=5"/>
 </head>
 <body>
-  <button type="button" class="menu-btn" id="menuBtn" aria-label="Abrir pastas">☰</button>
+  <button type="button" class="menu-btn" id="menuBtn" aria-label="Open folders">☰</button>
   <div class="scrim" id="menuScrim"></div>
   <aside class="rail" id="rail">
     <div class="brand">
       <span class="mark">H</span>
       <div>
         <strong>Hub</strong>
-        <small>arquivo vivo</small>
+        <small id="brandTag">living archive</small>
       </div>
+    </div>
+    <div class="lang-toggle" id="langToggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" class="active">EN</button>
+      <button type="button" data-lang="pt">PT</button>
     </div>
     <nav class="views" id="views"></nav>
     <nav id="folders" class="folders"></nav>
     <nav id="subfolders" class="chips"></nav>
-    <div class="rail-foot">
-      Captura no Telegram<br/>Ação no Calendar
+    <div class="rail-foot" id="railFoot">
+      Capture on Telegram<br/>Action on Calendar
     </div>
   </aside>
   <main>
     <header class="top">
       <label class="search" id="searchWrap">
-        <span>Buscar</span>
-        <input id="q" type="search" placeholder="boleto, treino, instagram, CNH, suno…" autocomplete="off"/>
+        <span id="searchLabel">Search</span>
+        <input id="q" type="search" placeholder="invoice, workout, instagram, ID, suno…" autocomplete="off"/>
       </label>
       <h1 class="page-title" id="pageTitle" hidden></h1>
       <div class="filters" id="statusFilters"></div>
     </header>
     <div class="makebar" id="makeBar">
-      <button type="button" id="btnRecap">Vídeo da semana</button>
-      <button type="button" id="btnTheme">Áudio da semana</button>
+      <button type="button" id="btnRecap">Week video</button>
+      <button type="button" id="btnTheme">Week audio</button>
       <span class="makebar-status" id="genStatus"></span>
     </div>
     <section id="workspace" class="grid"></section>
   </main>
   <aside id="drawer" class="drawer hidden" hidden></aside>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

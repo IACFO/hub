@@ -1,6 +1,8 @@
+const ALL = "Tudo";
+
 const state = {
   items: [],
-  folder: "Tudo",
+  folder: ALL,
   subfolder: "",
   status: "open",
   view: "inbox",
@@ -10,32 +12,245 @@ const state = {
   subfolderSeeds: {},
   finance: null,
   reports: null,
+  lang: localStorage.getItem("hub_lang") || "en",
 };
 
-const VIEWS = [
-  { id: "inbox", label: "Arquivo" },
-  { id: "finance", label: "Finanças" },
-  { id: "reports", label: "Relatórios" },
-];
-
-const STATUS_TABS = [
-  { id: "open", label: "Abertos" },
-  { id: "done", label: "Concluídos" },
-  { id: "discarded", label: "Descartados" },
-  { id: "all", label: "Todos" },
-];
-
-const KIND_LABEL = {
-  note: "Nota",
-  task: "Tarefa",
-  link: "Link",
-  document: "Documento",
-  shopping: "Compras",
-  workout: "Treino",
-  prompt: "Prompt",
-  finance: "Finanças",
-  media: "Mídia",
+const I18N = {
+  en: {
+    brandTag: "living archive",
+    railFoot: "Capture on Telegram<br/>Action on Calendar",
+    search: "Search",
+    searchPh: "invoice, workout, instagram, ID, suno…",
+    menuOpen: "Open folders",
+    weekVideo: "Week video",
+    weekAudio: "Week audio",
+    askingVideo: "Requesting video…",
+    askingAudio: "Requesting audio…",
+    loadingArchive: "Loading archive…",
+    loadingFinance: "Loading P&L…",
+    loadingReports: "Loading reports…",
+    emptyInbox: "Nothing in this slice. Send audio, a link, a PDF, or a list on Telegram.",
+    itemsOf: (done, total) => `${done}/${total} items`,
+    openLink: "Open on computer",
+    save: "Save",
+    done: "Done",
+    discard: "Discard",
+    income: "Income",
+    expense: "Spend",
+    balance: "Balance",
+    incomeLabel: (month) => `Income · ${month}`,
+    financeHint: 'Send on Telegram: "spent 40 on lunch, received 200 via PIX".',
+    date: "Date",
+    type: "Type",
+    category: "Category",
+    description: "Description",
+    amount: "Amount",
+    noEntries: "No entries this month.",
+    captures7d: "Captures · 7 days",
+    pendingCal: "Pending Calendar",
+    folders: "Folders",
+    weekAgenda: "This week’s agenda",
+    noAgenda: "Nothing on the Agenda this week.",
+    all: "All",
+    allSub: "All",
+    views: { inbox: "Archive", finance: "Finance", reports: "Reports" },
+    status: { open: "Open", done: "Done", discarded: "Discarded", all: "All" },
+    kinds: {
+      note: "Note",
+      task: "Task",
+      link: "Link",
+      document: "Document",
+      shopping: "Shopping",
+      workout: "Workout",
+      prompt: "Prompt",
+      finance: "Finance",
+      media: "Media",
+    },
+    moneyKinds: { receita: "Income", gasto: "Expense", boleto: "Bill" },
+    cats: {
+      renda: "Income",
+      alimentacao: "Food",
+      transporte: "Transport",
+      casa: "Home",
+      saude: "Health",
+      lazer: "Leisure",
+      outros: "Other",
+    },
+    foldersMap: {
+      Tudo: "All",
+      Inbox: "Inbox",
+      Agenda: "Agenda",
+      Financas: "Finance",
+      Compras: "Shopping",
+      Documentos: "Documents",
+      Links: "Links",
+      Treino: "Workout",
+      Prompts: "Prompts",
+      Ideias: "Ideas",
+      Saude: "Health",
+      Fotos: "Photos",
+      Musica: "Music",
+    },
+    subsMap: {
+      Selfies: "Selfies",
+      Prints: "Screenshots",
+      Capas: "Covers",
+      Pessoal: "Personal",
+      Profissional: "Work",
+      Andamento: "In progress",
+      Insights: "Insights",
+      Curiosidades: "Curiosity",
+      Vagas: "Jobs",
+      Entretenimento: "Entertainment",
+      Noticias: "News",
+      Gastos: "Expenses",
+      Receitas: "Income",
+      Boletos: "Bills",
+    },
+  },
+  pt: {
+    brandTag: "arquivo vivo",
+    railFoot: "Captura no Telegram<br/>Ação no Calendar",
+    search: "Buscar",
+    searchPh: "boleto, treino, instagram, CNH, suno…",
+    menuOpen: "Abrir pastas",
+    weekVideo: "Vídeo da semana",
+    weekAudio: "Áudio da semana",
+    askingVideo: "Pedindo vídeo…",
+    askingAudio: "Pedindo áudio…",
+    loadingArchive: "Carregando arquivo…",
+    loadingFinance: "Carregando P&L…",
+    loadingReports: "Carregando relatórios…",
+    emptyInbox: "Nada neste recorte. Mande um áudio, link, PDF ou lista no Telegram.",
+    itemsOf: (done, total) => `${done}/${total} itens`,
+    openLink: "Abrir no computador",
+    save: "Salvar",
+    done: "Concluir",
+    discard: "Descartar",
+    income: "Entradas",
+    expense: "Saídas",
+    balance: "Saldo",
+    incomeLabel: (month) => `Entradas · ${month}`,
+    financeHint: "Mande no Telegram: “gastei 40 no almoço, recebi 200 no PIX”.",
+    date: "Data",
+    type: "Tipo",
+    category: "Categoria",
+    description: "Descrição",
+    amount: "Valor",
+    noEntries: "Sem lançamentos neste mês.",
+    captures7d: "Capturas · 7 dias",
+    pendingCal: "Calendar pendente",
+    folders: "Pastas",
+    weekAgenda: "Agenda da semana",
+    noAgenda: "Nada na Agenda desta semana.",
+    all: "Tudo",
+    allSub: "Todas",
+    views: { inbox: "Arquivo", finance: "Finanças", reports: "Relatórios" },
+    status: { open: "Abertos", done: "Concluídos", discarded: "Descartados", all: "Todos" },
+    kinds: {
+      note: "Nota",
+      task: "Tarefa",
+      link: "Link",
+      document: "Documento",
+      shopping: "Compras",
+      workout: "Treino",
+      prompt: "Prompt",
+      finance: "Finanças",
+      media: "Mídia",
+    },
+    moneyKinds: { receita: "Receita", gasto: "Gasto", boleto: "Boleto" },
+    cats: {
+      renda: "Renda",
+      alimentacao: "Alimentação",
+      transporte: "Transporte",
+      casa: "Casa",
+      saude: "Saúde",
+      lazer: "Lazer",
+      outros: "Outros",
+    },
+    foldersMap: {
+      Tudo: "Tudo",
+      Inbox: "Inbox",
+      Agenda: "Agenda",
+      Financas: "Finanças",
+      Compras: "Compras",
+      Documentos: "Documentos",
+      Links: "Links",
+      Treino: "Treino",
+      Prompts: "Prompts",
+      Ideias: "Ideias",
+      Saude: "Saúde",
+      Fotos: "Fotos",
+      Musica: "Música",
+    },
+    subsMap: {
+      Selfies: "Selfies",
+      Prints: "Prints",
+      Capas: "Capas",
+      Pessoal: "Pessoal",
+      Profissional: "Profissional",
+      Andamento: "Andamento",
+      Insights: "Insights",
+      Curiosidades: "Curiosidades",
+      Vagas: "Vagas",
+      Entretenimento: "Entretenimento",
+      Noticias: "Notícias",
+      Gastos: "Gastos",
+      Receitas: "Receitas",
+      Boletos: "Boletos",
+    },
+  },
 };
+
+function dict() {
+  return I18N[state.lang] || I18N.en;
+}
+
+function t(key) {
+  return dict()[key];
+}
+
+function folderLabel(name) {
+  return dict().foldersMap[name] || name;
+}
+
+function subLabel(name) {
+  return dict().subsMap[name] || name;
+}
+
+function kindLabel(kind) {
+  return dict().kinds[kind] || kind;
+}
+
+function typeLabel(kind) {
+  return dict().moneyKinds[kind] || kind;
+}
+
+function catLabel(cat) {
+  return dict().cats[cat] || cat || "";
+}
+
+function setLang(lang) {
+  state.lang = lang === "pt" ? "pt" : "en";
+  localStorage.setItem("hub_lang", state.lang);
+  document.documentElement.lang = state.lang === "pt" ? "pt-BR" : "en";
+  applyChrome();
+  render();
+}
+
+function applyChrome() {
+  const d = dict();
+  document.getElementById("brandTag").textContent = d.brandTag;
+  document.getElementById("railFoot").innerHTML = d.railFoot;
+  document.getElementById("searchLabel").textContent = d.search;
+  document.getElementById("q").placeholder = d.searchPh;
+  document.getElementById("menuBtn").setAttribute("aria-label", d.menuOpen);
+  document.getElementById("btnRecap").textContent = d.weekVideo;
+  document.getElementById("btnTheme").textContent = d.weekAudio;
+  document.querySelectorAll("#langToggle [data-lang]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.lang === state.lang);
+  });
+}
 
 async function api(path, options) {
   const res = await fetch(path, {
@@ -59,7 +274,7 @@ function money(item) {
 function visible() {
   const q = state.q.trim().toLowerCase();
   return state.items.filter((item) => {
-    if (state.folder !== "Tudo" && item.folder !== state.folder) return false;
+    if (state.folder !== ALL && item.folder !== state.folder) return false;
     if (state.subfolder && item.subfolder !== state.subfolder) return false;
     if (state.status === "open" && !isOpen(item)) return false;
     if (state.status === "done" && item.status !== "done") return false;
@@ -75,10 +290,10 @@ function visible() {
 }
 
 function folderCounts() {
-  const counts = { Tudo: 0 };
+  const counts = { [ALL]: 0 };
   for (const item of state.items) {
     if (!isOpen(item)) continue;
-    counts.Tudo += 1;
+    counts[ALL] += 1;
     counts[item.folder] = (counts[item.folder] || 0) + 1;
   }
   return counts;
@@ -98,9 +313,10 @@ function setMenu(open) {
 }
 
 function renderViews() {
-  document.getElementById("views").innerHTML = VIEWS.map((view) => {
-    const active = state.view === view.id ? "active" : "";
-    return `<button data-view="${view.id}" class="${active}">${view.label}</button>`;
+  const views = dict().views;
+  document.getElementById("views").innerHTML = Object.entries(views).map(([id, label]) => {
+    const active = state.view === id ? "active" : "";
+    return `<button data-view="${id}" class="${active}">${label}</button>`;
   }).join("");
   document.querySelectorAll("[data-view]").forEach((btn) => {
     btn.onclick = () => {
@@ -113,11 +329,11 @@ function renderViews() {
 
 function renderFolders(folders) {
   const counts = folderCounts();
-  const names = ["Tudo", ...folders];
+  const names = [ALL, ...folders];
   document.getElementById("folders").innerHTML = names.map((name) => {
     const n = counts[name] || 0;
     const active = state.folder === name ? "active" : "";
-    return `<button data-folder="${name}" class="${active}"><span>${name}</span><span>${n}</span></button>`;
+    return `<button data-folder="${name}" class="${active}"><span>${escapeHtml(folderLabel(name))}</span><span>${n}</span></button>`;
   }).join("");
   document.querySelectorAll("[data-folder]").forEach((btn) => {
     btn.onclick = () => {
@@ -132,7 +348,7 @@ function renderFolders(folders) {
 
 function renderSubfolders() {
   const el = document.getElementById("subfolders");
-  if (state.view !== "inbox" || state.folder === "Tudo") {
+  if (state.view !== "inbox" || state.folder === ALL) {
     el.innerHTML = "";
     return;
   }
@@ -142,11 +358,14 @@ function renderSubfolders() {
     el.innerHTML = "";
     return;
   }
-  el.innerHTML = ["Todas", ...names].map((name) => {
-    const id = name === "Todas" ? "" : name;
-    const active = state.subfolder === id ? "active" : "";
-    const n = name === "Todas" ? "" : (counts[name] || 0);
-    return `<button data-sub="${id}" class="${active}">${name}${n ? " " + n : ""}</button>`;
+  const chips = [{ id: "", label: t("allSub") }, ...names.map((name) => ({
+    id: name,
+    label: subLabel(name),
+  }))];
+  el.innerHTML = chips.map((chip) => {
+    const active = state.subfolder === chip.id ? "active" : "";
+    const n = chip.id ? (counts[chip.id] || 0) : "";
+    return `<button data-sub="${escapeHtml(chip.id)}" class="${active}">${escapeHtml(chip.label)}${n ? " " + n : ""}</button>`;
   }).join("");
   el.querySelectorAll("[data-sub]").forEach((btn) => {
     btn.onclick = () => {
@@ -158,9 +377,10 @@ function renderSubfolders() {
 }
 
 function renderStatus() {
-  document.getElementById("statusFilters").innerHTML = STATUS_TABS.map((tab) => {
-    const active = state.status === tab.id ? "active" : "";
-    return `<button data-status="${tab.id}" class="${active}">${tab.label}</button>`;
+  const tabs = dict().status;
+  document.getElementById("statusFilters").innerHTML = Object.entries(tabs).map(([id, label]) => {
+    const active = state.status === id ? "active" : "";
+    return `<button data-status="${id}" class="${active}">${label}</button>`;
   }).join("");
   document.querySelectorAll("[data-status]").forEach((btn) => {
     btn.onclick = () => {
@@ -175,17 +395,18 @@ function snippet(item) {
   if (facts.length) {
     const f = facts[0];
     const extra = facts.length > 1 ? ` +${facts.length - 1}` : "";
-    return `${f.kind} · ${f.merchant || ""} · R$ ${f.amount ?? "—"} · ${f.occurred_at || f.due_at || ""}${extra}`;
+    return `${typeLabel(f.kind)} · ${f.merchant || ""} · R$ ${f.amount ?? "—"} · ${f.occurred_at || f.due_at || ""}${extra}`;
   }
   if (item.checklist?.length) {
     const left = item.checklist.filter((c) => !c.checked).length;
-    return `${item.checklist.length - left}/${item.checklist.length} itens`;
+    return t("itemsOf")(item.checklist.length - left, item.checklist.length);
   }
   return item.summary || item.body || item.raw_text || "";
 }
 
 function brl(n) {
-  return Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const locale = state.lang === "pt" ? "pt-BR" : "en-US";
+  return Number(n || 0).toLocaleString(locale, { style: "currency", currency: "BRL" });
 }
 
 function workspace() {
@@ -197,22 +418,24 @@ function renderGrid() {
   const grid = workspace();
   grid.className = "grid";
   if (!items.length) {
-    grid.innerHTML = `<p class="empty">Nada neste recorte. Mande um audio, link, PDF ou lista no Telegram.</p>`;
+    grid.innerHTML = `<p class="empty">${escapeHtml(t("emptyInbox"))}</p>`;
     return;
   }
   grid.innerHTML = items.map((item) => {
     const checks = (item.checklist || []).slice(0, 4).map((c) =>
       `<li><input type="checkbox" ${c.checked ? "checked" : ""} disabled/> ${escapeHtml(c.text)}</li>`
     ).join("");
-    const place = item.subfolder ? `${item.folder} / ${item.subfolder}` : item.folder;
+    const place = item.subfolder
+      ? `${folderLabel(item.folder)} / ${subLabel(item.subfolder)}`
+      : folderLabel(item.folder);
     return `
       <article class="card kind-${item.kind}" data-id="${item.id}">
-        <div class="kicker"><span>${KIND_LABEL[item.kind] || item.kind} · ${escapeHtml(place)}</span><span>${(item.created_at || "").slice(5, 16)}</span></div>
+        <div class="kicker"><span>${escapeHtml(kindLabel(item.kind))} · ${escapeHtml(place)}</span><span>${(item.created_at || "").slice(5, 16)}</span></div>
         <h2>${escapeHtml(item.title || item.summary || item.id)}</h2>
         ${item.subtitle ? `<p class="subtitle">${escapeHtml(item.subtitle)}</p>` : ""}
         <p>${escapeHtml(snippet(item).slice(0, 160))}</p>
         ${checks ? `<ul class="check">${checks}</ul>` : ""}
-        <div class="meta">${(item.tags || []).map((t) => "#" + t).join(" ")}</div>
+        <div class="meta">${(item.tags || []).map((tag) => "#" + tag).join(" ")}</div>
       </article>`;
   }).join("");
   grid.querySelectorAll(".card").forEach((card) => {
@@ -220,30 +443,15 @@ function renderGrid() {
   });
 }
 
-function typeLabel(kind) {
-  return { receita: "Receita", gasto: "Gasto", boleto: "Boleto" }[kind] || kind;
-}
-
-function catLabel(cat) {
-  return {
-    renda: "Renda",
-    alimentacao: "Alimentação",
-    transporte: "Transporte",
-    casa: "Casa",
-    saude: "Saúde",
-    lazer: "Lazer",
-    outros: "Outros",
-  }[cat] || cat || "";
-}
-
 function renderFinance() {
   const data = state.finance;
   const page = workspace();
   page.className = "page";
   if (!data) {
-    page.innerHTML = `<p class="empty">Carregando P&amp;L…</p>`;
+    page.innerHTML = `<p class="empty">${escapeHtml(t("loadingFinance"))}</p>`;
     return;
   }
+  const d = dict();
   const rows = (data.entries || []).map((row) => `
     <tr data-id="${row.item_id}">
       <td>${escapeHtml((row.occurred_at || "").slice(0, 10))}</td>
@@ -254,15 +462,15 @@ function renderFinance() {
     </tr>`).join("");
   page.innerHTML = `
     <div class="stats">
-      <div class="stat"><span>Entradas · ${escapeHtml(data.month)}</span><strong class="income">${escapeHtml(brl(data.income))}</strong></div>
-      <div class="stat"><span>Saídas</span><strong class="expense">${escapeHtml(brl(data.expense))}</strong></div>
-      <div class="stat"><span>Saldo</span><strong>${escapeHtml(brl(data.balance))}</strong></div>
+      <div class="stat"><span>${escapeHtml(d.incomeLabel(data.month))}</span><strong class="income">${escapeHtml(brl(data.income))}</strong></div>
+      <div class="stat"><span>${escapeHtml(d.expense)}</span><strong class="expense">${escapeHtml(brl(data.expense))}</strong></div>
+      <div class="stat"><span>${escapeHtml(d.balance)}</span><strong>${escapeHtml(brl(data.balance))}</strong></div>
     </div>
-    <p class="hint">Mande no Telegram: “gastei 40 no almoço, recebi 200 no PIX”.</p>
+    <p class="hint">${escapeHtml(d.financeHint)}</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Data</th><th>Tipo</th><th>Categoria</th><th>Descrição</th><th>Valor</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="5">Sem lançamentos neste mês.</td></tr>`}</tbody>
+        <thead><tr><th>${d.date}</th><th>${d.type}</th><th>${d.category}</th><th>${d.description}</th><th>${d.amount}</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="5">${escapeHtml(d.noEntries)}</td></tr>`}</tbody>
       </table>
     </div>`;
   page.querySelectorAll("tr[data-id]").forEach((row) => {
@@ -279,27 +487,28 @@ function renderReports() {
   const page = workspace();
   page.className = "page";
   if (!data) {
-    page.innerHTML = `<p class="empty">Carregando relatórios…</p>`;
+    page.innerHTML = `<p class="empty">${escapeHtml(t("loadingReports"))}</p>`;
     return;
   }
+  const d = dict();
   const folders = Object.entries(data.folders || {}).map(([name, n]) =>
-    `<tr><td>${escapeHtml(name)}</td><td>${n}</td></tr>`
+    `<tr><td>${escapeHtml(folderLabel(name))}</td><td>${n}</td></tr>`
   ).join("");
   const agenda = data.agenda || {};
-  const tasks = (agenda.tasks || []).map((t) => `<li>${escapeHtml(t)}</li>`).join("")
-    || "<li>Nada na Agenda desta semana.</li>";
+  const tasks = (agenda.tasks || []).map((task) => `<li>${escapeHtml(task)}</li>`).join("")
+    || `<li>${escapeHtml(d.noAgenda)}</li>`;
   page.innerHTML = `
     <div class="stats">
-      <div class="stat"><span>Capturas · 7 dias</span><strong>${data.captures_7d || 0}</strong></div>
-      <div class="stat"><span>Calendar pendente</span><strong>${data.pending_calendar || 0}</strong></div>
+      <div class="stat"><span>${escapeHtml(d.captures7d)}</span><strong>${data.captures_7d || 0}</strong></div>
+      <div class="stat"><span>${escapeHtml(d.pendingCal)}</span><strong>${data.pending_calendar || 0}</strong></div>
     </div>
     <div class="split">
       <div>
-        <h2>Pastas</h2>
+        <h2>${escapeHtml(d.folders)}</h2>
         <div class="table-wrap"><table><tbody>${folders}</tbody></table></div>
       </div>
       <div>
-        <h2>Agenda da semana</h2>
+        <h2>${escapeHtml(d.weekAgenda)}</h2>
         <div class="panel-box"><ul class="check">${tasks}</ul></div>
       </div>
     </div>`;
@@ -337,6 +546,7 @@ function renderDrawer() {
   drawer.hidden = false;
   drawer.classList.remove("hidden");
   body.classList.add("open");
+  const d = dict();
   const media = (item.media_paths || []).map((_, idx) => {
     const src = `/api/files/${item.id}/${idx}`;
     const path = item.media_paths[idx] || "";
@@ -346,37 +556,37 @@ function renderDrawer() {
     if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(path)) {
       return `<audio class="preview" controls src="${src}"></audio>`;
     }
-    return `<img class="preview" src="${src}" alt="midia"/>`;
+    return `<img class="preview" src="${src}" alt="media"/>`;
   }).join("");
   const checks = (item.checklist || []).map((c) =>
     `<li><label><input type="checkbox" data-check="${c.id}" ${c.checked ? "checked" : ""}/> ${escapeHtml(c.text)}</label></li>`
   ).join("");
   const folderOpts = [...new Set([item.folder, ...(state.folders || [])].filter(Boolean))]
-    .map((f) => `<option ${f === item.folder ? "selected" : ""}>${f}</option>`).join("");
+    .map((f) => `<option value="${escapeHtml(f)}" ${f === item.folder ? "selected" : ""}>${escapeHtml(folderLabel(f))}</option>`).join("");
   const subNames = [...new Set([item.subfolder, ...(state.subfolderSeeds[item.folder] || [])].filter(Boolean))];
   const subOpts = ["", ...subNames].map((s) =>
-    `<option value="${escapeHtml(s)}" ${s === (item.subfolder || "") ? "selected" : ""}>${s || "—"}</option>`
+    `<option value="${escapeHtml(s)}" ${s === (item.subfolder || "") ? "selected" : ""}>${escapeHtml(s ? subLabel(s) : "—")}</option>`
   ).join("");
   const facts = money(item).map((f) =>
-    `<p>${escapeHtml(f.kind)} · ${escapeHtml(f.category || "")} · ${escapeHtml(f.merchant || "")} · R$ ${f.amount ?? "—"}</p>`
+    `<p>${escapeHtml(typeLabel(f.kind))} · ${escapeHtml(catLabel(f.category))} · ${escapeHtml(f.merchant || "")} · R$ ${f.amount ?? "—"}</p>`
   ).join("");
   drawer.innerHTML = `
-    <div class="kicker">${KIND_LABEL[item.kind] || item.kind}</div>
+    <div class="kicker">${escapeHtml(kindLabel(item.kind))}</div>
     <h1>${escapeHtml(item.title || item.summary || "")}</h1>
     ${item.subtitle ? `<p class="subtitle">${escapeHtml(item.subtitle)}</p>` : ""}
     <div class="row">
       <select id="folder">${folderOpts}</select>
       <select id="subfolder">${subOpts}</select>
-      ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Abrir no computador</a>` : ""}
+      ${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(d.openLink)}</a>` : ""}
     </div>
     ${media}
     ${facts}
     ${checks ? `<ul class="check">${checks}</ul>` : ""}
     <textarea id="body">${escapeHtml(item.body || item.raw_text || item.agent_reply || "")}</textarea>
     <div class="row">
-      <button class="primary" id="save">Salvar</button>
-      <button id="done">Concluir</button>
-      <button class="ghost" id="discard">Descartar</button>
+      <button class="primary" id="save">${escapeHtml(d.save)}</button>
+      <button id="done">${escapeHtml(d.done)}</button>
+      <button class="ghost" id="discard">${escapeHtml(d.discard)}</button>
     </div>
   `;
   drawer.querySelector("#folder").onchange = (ev) => patchItem(item.id, { folder: ev.target.value, status: "active" });
@@ -403,7 +613,9 @@ function render() {
   document.getElementById("makeBar").hidden = !inboxMode;
   const title = document.getElementById("pageTitle");
   title.hidden = inboxMode;
-  title.textContent = state.view === "finance" ? "Finanças" : state.view === "reports" ? "Relatórios" : "";
+  title.textContent = state.view === "finance" || state.view === "reports"
+    ? dict().views[state.view]
+    : "";
   renderViews();
   renderStatus();
   renderFolders(state.folders || []);
@@ -431,19 +643,24 @@ async function refresh() {
 async function boot() {
   const view = new URLSearchParams(location.search).get("view");
   if (["inbox", "finance", "reports"].includes(view)) state.view = view;
-  workspace().innerHTML = `<p class="empty">Carregando arquivo…</p>`;
+  document.documentElement.lang = state.lang === "pt" ? "pt-BR" : "en";
+  applyChrome();
+  workspace().innerHTML = `<p class="empty">${escapeHtml(t("loadingArchive"))}</p>`;
   document.getElementById("q").addEventListener("input", (ev) => {
     state.q = ev.target.value;
     render();
   });
+  document.querySelectorAll("#langToggle [data-lang]").forEach((btn) => {
+    btn.onclick = () => setLang(btn.dataset.lang);
+  });
   const status = document.getElementById("genStatus");
   document.getElementById("btnRecap").onclick = async () => {
-    status.textContent = "Pedindo vídeo…";
+    status.textContent = t("askingVideo");
     const result = await api("/api/reports/recap", { method: "POST" });
     status.textContent = result.message || JSON.stringify(result);
   };
   document.getElementById("btnTheme").onclick = async () => {
-    status.textContent = "Pedindo áudio…";
+    status.textContent = t("askingAudio");
     const result = await api("/api/reports/theme", { method: "POST" });
     status.textContent = result.message || result.prompt || JSON.stringify(result);
   };
