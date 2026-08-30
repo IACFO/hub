@@ -98,6 +98,27 @@ The service binds `0.0.0.0:$PORT` (FastAPI / uvicorn). Filesystem is ephemeral �
 3. Confirm Calendar / CV email buttons in Telegram when offered.
 4. Watch the card land under Archive / Finance / Reports.
 
+## Reproducible testing
+
+### Hosted (fastest for judges)
+
+1. Open **https://hub-451649651313.us-central1.run.app**
+2. Confirm the UI loads in **English** (toggle **EN/PT** in the top-right on mobile, or in the left rail on desktop).
+3. Browse **Archive / Finance / Reports** — cards come from live Firestore captures.
+4. Watch the demo video (YouTube, English captions via CC) for Telegram → agent → Calendar confirm end-to-end.
+
+Telegram write-actions (send new captures / Confirm buttons) require the project bot token and the submitter’s Google OAuth token; judges can validate the hosted dashboard + video without those secrets.
+
+### Local
+
+1. Follow **Local spin-up** above (`pip install`, `.env`, `PYTHONPATH=src`).
+2. `python scripts/check_setup.py`
+3. `python -m hub.server` → http://localhost:8080
+4. Optional: `python -m hub.telegram_bot` **only if** the Cloud Run webhook is disabled (`deleteWebhook` otherwise).
+5. Optional Calendar/Gmail: `python scripts/auth_workspace.py` after placing `credentials/client_secret.json`.
+
+Cloud Run redeploy: `.\scripts\deploy_cloud_run.ps1` (see **Cloud Run spin-up**).
+
 ## License
 
 Hackathon submission — see Devpost entry for details.
