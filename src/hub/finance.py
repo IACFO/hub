@@ -21,6 +21,11 @@ def _fact_month(item: InboxItem, fact) -> str:
     return _month_key(stamp, item.created_at)
 
 
+def _is_active_ledger(item: InboxItem) -> bool:
+    """Discarded cards must not appear in P&L or report rollups."""
+    return item.status != "discarded"
+
+
 def month_summary(items: list[InboxItem], month: str | None = None) -> dict:
     now = datetime.now(_TZ).strftime("%Y-%m")
     target = (month or now)[:7]
@@ -29,6 +34,8 @@ def month_summary(items: list[InboxItem], month: str | None = None) -> dict:
     by_cat: dict[str, float] = defaultdict(float)
     rows = []
     for item in items:
+        if not _is_active_ledger(item):
+            continue
         for fact in item.money():
             if _fact_month(item, fact) != target:
                 continue
@@ -72,6 +79,8 @@ def week_agenda(items: list[InboxItem]) -> dict:
     tasks = []
     events = []
     for item in items:
+        if not _is_active_ledger(item):
+            continue
         for task in item.tasks:
             due = (task.due_at or "")[:10]
             if due and start.strftime("%Y-%m-%d") <= due < end.strftime("%Y-%m-%d"):
@@ -97,6 +106,8 @@ def reports_snapshot(items: list[InboxItem]) -> dict:
     folders: dict[str, int] = defaultdict(int)
     tags: dict[str, int] = defaultdict(int)
     for item in items:
+        if not _is_active_ledger(item):
+            continue
         created = item.created_at or ""
         if created >= week_ago.isoformat():
             recent += 1

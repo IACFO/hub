@@ -32,6 +32,7 @@ const I18N = {
     emptyInbox: "Nothing in this slice. Send audio, a link, a PDF, or a list on Telegram.",
     itemsOf: (done, total) => `${done}/${total} items`,
     openLink: "Open on computer",
+    download: "Download",
     save: "Save",
     done: "Done",
     discard: "Discard",
@@ -124,6 +125,7 @@ const I18N = {
     emptyInbox: "Nada neste recorte. Mande um áudio, link, PDF ou lista no Telegram.",
     itemsOf: (done, total) => `${done}/${total} itens`,
     openLink: "Abrir no computador",
+    download: "Baixar",
     save: "Salvar",
     done: "Concluir",
     discard: "Descartar",
@@ -247,9 +249,22 @@ function applyChrome() {
   document.getElementById("menuBtn").setAttribute("aria-label", d.menuOpen);
   document.getElementById("btnRecap").textContent = d.weekVideo;
   document.getElementById("btnTheme").textContent = d.weekAudio;
-  document.querySelectorAll("#langToggle [data-lang]").forEach((btn) => {
+  document.querySelectorAll(".lang-toggle [data-lang]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === state.lang);
   });
+}
+
+function mediaFileName(path, itemId, index) {
+  const raw = (path || "").split("?")[0];
+  const base = raw.split("/").pop() || "";
+  if (base && base !== itemId && !base.startsWith("itm_")) {
+    return base;
+  }
+  const lower = raw.toLowerCase();
+  if (lower.endsWith(".pdf")) return `${itemId}-${index}.pdf`;
+  if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(lower)) return `${itemId}-${index}.audio`;
+  if (/\.(png|webp|gif)$/i.test(lower)) return `${itemId}-${index}${lower.slice(lower.lastIndexOf("."))}`;
+  return `${itemId}-${index}.jpg`;
 }
 
 async function api(path, options) {
@@ -530,6 +545,15 @@ function openDrawer(id) {
 async function patchItem(id, body) {
   const updated = await api(`/api/items/${id}`, { method: "PATCH", body: JSON.stringify(body) });
   state.items = state.items.map((item) => (item.id === id ? updated : item));
+  if (body.status === "discarded" || body.status === "done") {
+    state.selected = null;
+  }
+  try {
+    state.finance = await api("/api/finance");
+    state.reports = await api("/api/reports");
+  } catch (err) {
+    console.error(err);
+  }
   render();
 }
 
@@ -550,13 +574,15 @@ function renderDrawer() {
   const media = (item.media_paths || []).map((_, idx) => {
     const src = `/api/files/${item.id}/${idx}`;
     const path = item.media_paths[idx] || "";
+    const fileName = mediaFileName(path, item.id, idx);
+    const dl = `<a class="download" href="${src}?download=1" download="${escapeHtml(fileName)}">${escapeHtml(d.download)}</a>`;
     if (path.toLowerCase().endsWith(".pdf")) {
-      return `<iframe class="preview pdf" src="${src}"></iframe>`;
+      return `<div class="media-block"><iframe class="preview pdf" src="${src}"></iframe>${dl}</div>`;
     }
     if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(path)) {
-      return `<audio class="preview" controls src="${src}"></audio>`;
+      return `<div class="media-block"><audio class="preview" controls src="${src}"></audio>${dl}</div>`;
     }
-    return `<img class="preview" src="${src}" alt="media"/>`;
+    return `<div class="media-block"><img class="preview" src="${src}" alt="media"/>${dl}</div>`;
   }).join("");
   const checks = (item.checklist || []).map((c) =>
     `<li><label><input type="checkbox" data-check="${c.id}" ${c.checked ? "checked" : ""}/> ${escapeHtml(c.text)}</label></li>`
@@ -650,7 +676,7 @@ async function boot() {
     state.q = ev.target.value;
     render();
   });
-  document.querySelectorAll("#langToggle [data-lang]").forEach((btn) => {
+  document.querySelectorAll(".lang-toggle [data-lang]").forEach((btn) => {
     btn.onclick = () => setLang(btn.dataset.lang);
   });
   const status = document.getElementById("genStatus");

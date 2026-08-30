@@ -163,24 +163,60 @@ async def api_patch_check(item_id: str, check_id: str, patch: CheckPatch) -> dic
     raise HTTPException(404, "check not found")
 
 
+def _guess_media_type(name: str) -> str:
+    lower = name.lower()
+    if lower.endswith(".png"):
+        return "image/png"
+    if lower.endswith(".webp"):
+        return "image/webp"
+    if lower.endswith(".gif"):
+        return "image/gif"
+    if lower.endswith(".pdf"):
+        return "application/pdf"
+    if lower.endswith(".mp3"):
+        return "audio/mpeg"
+    if lower.endswith(".wav"):
+        return "audio/wav"
+    if lower.endswith(".ogg"):
+        return "audio/ogg"
+    if lower.endswith((".m4a", ".mp4")):
+        return "audio/mp4"
+    if lower.endswith((".jpg", ".jpeg")):
+        return "image/jpeg"
+    return "application/octet-stream"
+
+
+def _download_name(raw: str, item_id: str, index: int) -> str:
+    base = Path(raw.replace("gs://", "")).name or f"{item_id}-{index}"
+    safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in base)
+    return safe or f"{item_id}-{index}.bin"
+
+
 @app.get("/api/files/{item_id}/{index}")
-async def api_file(item_id: str, index: int = 0):
+async def api_file(item_id: str, index: int = 0, download: bool = False):
     item = store.get(item_id)
     if item is None or index >= len(item.media_paths):
         raise HTTPException(404, "file not found")
     raw = item.media_paths[index]
+    filename = _download_name(raw, item_id, index)
+    media_type = _guess_media_type(filename)
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
     if raw.startswith("gs://"):
         from hub.media import read_bytes
 
         data = read_bytes(raw)
-        return Response(content=data, media_type="application/octet-stream")
+        return Response(content=data, media_type=media_type, headers=headers)
     path = Path(raw).resolve()
     media_root = MEDIA_DIR.resolve()
     if not path.is_relative_to(media_root):
         raise HTTPException(403, "path denied")
     if not path.exists():
         raise HTTPException(404, "missing file")
-    return FileResponse(path)
+    if download:
+        return FileResponse(path, media_type=media_type, filename=filename)
+    return FileResponse(path, media_type=media_type)
 
 
 def main() -> None:

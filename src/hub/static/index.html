@@ -4,10 +4,14 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hub</title>
-  <link rel="stylesheet" href="/static/app.css?v=5"/>
+  <link rel="stylesheet" href="/static/app.css?v=7"/>
 </head>
 <body>
   <button type="button" class="menu-btn" id="menuBtn" aria-label="Open folders">☰</button>
+  <div class="lang-toggle lang-toggle-bar" id="langToggleBar" role="group" aria-label="Language">
+    <button type="button" data-lang="en" class="active">EN</button>
+    <button type="button" data-lang="pt">PT</button>
+  </div>
   <div class="scrim" id="menuScrim"></div>
   <aside class="rail" id="rail">
     <div class="brand">
@@ -45,6 +49,6 @@
     <section id="workspace" class="grid"></section>
   </main>
   <aside id="drawer" class="drawer hidden" hidden></aside>
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>

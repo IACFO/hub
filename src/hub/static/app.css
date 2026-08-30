@@ -198,14 +198,27 @@ body.open {
   padding: 22px 28px 8px;
   display: flex; gap: 18px; align-items: end; flex-wrap: wrap;
 }
-.search { flex: 1; min-width: 240px; display: flex; flex-direction: column; gap: 6px; }
+.search { flex: 1 1 100%; min-width: 240px; display: flex; flex-direction: column; gap: 6px; }
 .search span { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
 .search input {
   width: 100%; background: var(--bg-2); border: 1px solid var(--line);
   color: var(--ink); padding: 12px 14px; font: inherit;
   border-radius: 10px;
 }
-.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 auto; }
+.lang-toggle-bar { display: none; }
+.media-block { margin: 10px 0; }
+.media-block .download {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--bg-2);
+  font-size: 13px;
+}
 .filters button, .chip {
   appearance: none; border: 1px solid var(--line); background: transparent;
   color: var(--muted); padding: 6px 10px; cursor: pointer; font: inherit; font-size: 12px;
@@ -290,6 +303,14 @@ a { color: var(--accent); }
     font-size: 20px;
     cursor: pointer;
   }
+  .lang-toggle-bar {
+    display: inline-flex;
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    right: 12px;
+    z-index: 50;
+    background: var(--paper);
+  }
   .scrim {
     display: none;
     position: fixed;
@@ -313,15 +334,39 @@ a { color: var(--accent); }
     padding: max(28px, calc(env(safe-area-inset-top) + 56px)) 18px 28px;
   }
   body.menu-open .rail { transform: translateX(0); }
-  .top { padding: 16px 16px 8px 64px; }
-  .search { min-width: 0; }
+  .top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: max(16px, calc(env(safe-area-inset-top) + 60px)) 16px 8px;
+  }
+  .search {
+    order: 1;
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+  .search input {
+    padding: 14px 16px;
+    font-size: 16px;
+    min-height: 48px;
+  }
+  .filters {
+    order: 2;
+    width: 100%;
+  }
+  .page-title {
+    order: 1;
+    padding-right: 0;
+  }
   .makebar, .grid, .page { padding-left: 16px; padding-right: 16px; }
   .stats, .split { grid-template-columns: 1fr; }
   .drawer {
     position: fixed;
     inset: 0;
-    z-index: 45;
+    z-index: 55;
     width: auto;
     border-left: 0;
+    padding-top: max(24px, env(safe-area-inset-top));
   }
 }
