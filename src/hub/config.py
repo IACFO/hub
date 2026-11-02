@@ -19,11 +19,19 @@ GOOGLE_CLOUD_LOCATION = os.getenv(
 GCS_BUCKET = os.getenv("GCS_BUCKET", "").strip()
 HUB_USE_FIRESTORE = os.getenv("HUB_USE_FIRESTORE", "false").lower() in {"1", "true", "yes"}
 ENABLE_WORKSPACE_MCP = os.getenv("ENABLE_WORKSPACE_MCP", "false").lower() in {"1", "true", "yes"}
+# Public demo: visitors can view inbox/reports but cannot edit, discard, or burn Gemini credits.
+HUB_READ_ONLY = os.getenv("HUB_READ_ONLY", "false").lower() in {"1", "true", "yes"}
+# Private dashboard. On Cloud Run, defaults to on (fail closed). Locally off unless set.
+_k_service = bool(os.getenv("K_SERVICE", "").strip())
+HUB_REQUIRE_AUTH = os.getenv(
+    "HUB_REQUIRE_AUTH",
+    "true" if _k_service else "false",
+).lower() in {"1", "true", "yes"}
+HUB_OWNER_EMAIL = os.getenv("HUB_OWNER_EMAIL", "vilson.dj97@gmail.com").strip().lower()
+HUB_ACCESS_CODE = os.getenv("HUB_ACCESS_CODE", "").strip()
+HUB_SESSION_SECRET = os.getenv("HUB_SESSION_SECRET", "").strip()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash").strip()
-GEMMA_MODEL = os.getenv("GEMMA_MODEL", "gemma-3-12b-it").strip()
-VEO_MODEL = os.getenv("VEO_MODEL", "veo-3.0-generate-preview").strip()
-LYRIA_MODEL = os.getenv("LYRIA_MODEL", "lyria-002").strip()
 DATA_DIR = Path(os.getenv("HUB_DATA_DIR", ROOT / "data"))
 MEDIA_DIR = DATA_DIR / "media"
 CREDENTIALS_DIR = ROOT / "credentials"

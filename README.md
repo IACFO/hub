@@ -64,7 +64,7 @@ ADK web (agent debug): from `agents/`, run `adk web --port 8000`.
 | `TELEGRAM_BOT_TOKEN` | BotFather token |
 | `GOOGLE_CLOUD_PROJECT` | GCP project id |
 | `GOOGLE_CLOUD_LOCATION` | Use `global` for Gemini on Vertex |
-| `GOOGLE_GENAI_USE_VERTEXAI` | `true` for Vertex credits |
+| `GOOGLE_GENAI_USE_VERTEXAI` | `true` for Vertex; `false` uses the AI Studio free tier via `GEMINI_API_KEY` |
 | `HUB_USE_FIRESTORE` | `true` in cloud, `false` for local JSON |
 | `GCS_BUCKET` | Media bucket name |
 | `GEMINI_MODEL` | Default `gemini-3.6-flash` |
