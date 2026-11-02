@@ -26,22 +26,57 @@ def _is_active_ledger(item: InboxItem) -> bool:
     return item.status != "discarded"
 
 
-def month_summary(items: list[InboxItem], month: str | None = None) -> dict:
+def _money_side(kind: str, sides: dict[str, str] | None) -> str:
+    if sides and kind in sides:
+        return "entrada" if sides[kind] == "entrada" else "saida"
+    return "entrada" if kind == "receita" else "saida"
+
+
+def _is_payable(fact) -> bool:
+    return bool((getattr(fact, "bill_status", "") or "").strip())
+
+
+def _paid_month(item: InboxItem, fact) -> str:
+    stamp = getattr(fact, "paid_at", None) or fact.due_at or fact.occurred_at or item.created_at
+    return _month_key(stamp, item.created_at)
+
+
+def add_months(day: str, offset: int) -> str:
+    import calendar
+
+    year, month, dom = int(day[0:4]), int(day[5:7]), int(day[8:10])
+    index = month - 1 + offset
+    year += index // 12
+    month = index % 12 + 1
+    dom = min(dom, calendar.monthrange(year, month)[1])
+    return f"{year:04d}-{month:02d}-{dom:02d}"
+
+
+def month_summary(
+    items: list[InboxItem],
+    month: str | None = None,
+    sides: dict[str, str] | None = None,
+) -> dict:
     now = datetime.now(_TZ).strftime("%Y-%m")
     target = (month or now)[:7]
     income = 0.0
     expense = 0.0
+    payments = 0.0
     by_cat: dict[str, float] = defaultdict(float)
     rows = []
     for item in items:
         if not _is_active_ledger(item):
             continue
         for fact in item.money():
+            if _is_payable(fact):
+                if (fact.bill_status or "") == "pago" and _paid_month(item, fact) == target:
+                    payments += float(fact.amount or 0)
+                continue
             if _fact_month(item, fact) != target:
                 continue
             amount = float(fact.amount or 0)
             kind = fact.kind
-            if kind == "receita":
+            if _money_side(kind, sides) == "entrada":
                 income += amount
                 by_cat[fact.category or "renda"] += amount
             else:
@@ -50,6 +85,7 @@ def month_summary(items: list[InboxItem], month: str | None = None) -> dict:
             rows.append(
                 {
                     "item_id": item.id,
+                    "fact_id": fact.id,
                     "title": item.display_title(),
                     "kind": kind,
                     "category": fact.category,
@@ -65,10 +101,139 @@ def month_summary(items: list[InboxItem], month: str | None = None) -> dict:
         "month": target,
         "income": round(income, 2),
         "expense": round(expense, 2),
-        "balance": round(income - expense, 2),
+        "payments": round(payments, 2),
+        "balance": round(income - expense - payments, 2),
         "by_category": {k: round(v, 2) for k, v in sorted(by_cat.items())},
         "entries": rows,
         "count": len(rows),
+    }
+
+
+def list_payables(items: list[InboxItem]) -> list[dict]:
+    rows = []
+    for item in items:
+        if not _is_active_ledger(item):
+            continue
+        for fact in item.money():
+            status = (getattr(fact, "bill_status", "") or "").strip()
+            if not status:
+                continue
+            due = (fact.due_at or fact.occurred_at or item.created_at or "")[:10]
+            rows.append(
+                {
+                    "item_id": item.id,
+                    "fact_id": fact.id,
+                    "description": fact.merchant or item.display_title(),
+                    "category": fact.category,
+                    "amount": float(fact.amount or 0),
+                    "due_at": due,
+                    "paid_at": (getattr(fact, "paid_at", None) or "")[:10],
+                    "status": status,
+                }
+            )
+    rows.sort(key=lambda row: row["due_at"] or "9999")
+    return rows
+
+
+def finance_report(
+    items: list[InboxItem],
+    month: str | None = None,
+    sides: dict[str, str] | None = None,
+) -> dict:
+    now = datetime.now(_TZ)
+    today = now.strftime("%Y-%m-%d")
+    target = (month or now.strftime("%Y-%m"))[:7]
+    months: dict[str, dict[str, float]] = defaultdict(lambda: {"income": 0.0, "expense": 0.0, "payable": 0.0})
+    cats: dict[str, dict[str, float]] = defaultdict(lambda: {"income": 0.0, "expense": 0.0, "payable": 0.0})
+    payable_overdue = 0.0
+    payable_open = 0.0
+    for item in items:
+        if not _is_active_ledger(item):
+            continue
+        for fact in item.money():
+            amount = float(fact.amount or 0)
+            if _is_payable(fact):
+                if (fact.bill_status or "") == "cancelado":
+                    continue
+                due = (fact.due_at or fact.occurred_at or item.created_at or "")[:10]
+                if fact.bill_status == "pago":
+                    bucket = _paid_month(item, fact)
+                    months[bucket]["expense"] += amount
+                    if bucket == target:
+                        cats[fact.category or "outros"]["expense"] += amount
+                    continue
+                bucket = _month_key(due, item.created_at)
+                if fact.bill_status == "aberto":
+                    payable_open += amount
+                    months[bucket]["payable"] += amount
+                    if bucket == target:
+                        cats[fact.category or "outros"]["payable"] += amount
+                    if due and due < today:
+                        payable_overdue += amount
+                continue
+            bucket = _fact_month(item, fact)
+            field = "income" if _money_side(fact.kind, sides) == "entrada" else "expense"
+            months[bucket][field] += amount
+            if bucket == target:
+                cats[fact.category or "outros"][field] += amount
+    by_month = []
+    ordered = sorted(months)
+    upcoming = [key for key in ordered if key >= now.strftime("%Y-%m")]
+    past = [key for key in reversed(ordered) if key < now.strftime("%Y-%m")]
+    for key in [*upcoming, *past]:
+        row = months[key]
+        income = round(row["income"], 2)
+        expense = round(row["expense"], 2)
+        by_month.append(
+            {
+                "month": key,
+                "income": income,
+                "expense": expense,
+                "balance": round(income - expense, 2),
+                "payable": round(row["payable"], 2),
+            }
+        )
+    by_category = []
+    for key, row in sorted(cats.items()):
+        income = round(row["income"], 2)
+        expense = round(row["expense"], 2)
+        payable = round(row["payable"], 2)
+        if not income and not expense and not payable:
+            continue
+        by_category.append(
+            {
+                "id": key,
+                "income": income,
+                "expense": expense,
+                "payable": payable,
+                "balance": round(income - expense, 2),
+            }
+        )
+    current = months.get(target) or {"income": 0.0, "expense": 0.0, "payable": 0.0}
+    income = round(current["income"], 2)
+    expense = round(current["expense"], 2)
+    income_categories = [
+        {"id": row["id"], "amount": row["income"]}
+        for row in by_category
+        if row["income"]
+    ]
+    expense_categories = [
+        {"id": row["id"], "amount": row["expense"]}
+        for row in by_category
+        if row["expense"]
+    ]
+    return {
+        "month": target,
+        "income": income,
+        "expense": expense,
+        "balance": round(income - expense, 2),
+        "payable": round(current["payable"], 2),
+        "payable_open": round(payable_open, 2),
+        "payable_overdue": round(payable_overdue, 2),
+        "by_category": by_category,
+        "income_categories": income_categories,
+        "expense_categories": expense_categories,
+        "by_month": by_month,
     }
 
 

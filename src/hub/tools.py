@@ -298,27 +298,36 @@ def save_financial_fact(
     if item is None:
         return {"status": "error", "message": f"item {item_id} not found"}
     kind_norm = (kind or "desconhecido").lower()
-    if kind_norm not in {"gasto", "boleto", "receita", "desconhecido"}:
-        kind_norm = "desconhecido"
+    type_sides = {row["id"]: row.get("side") or "saida" for row in store.list_finance_types()}
+    if kind_norm not in type_sides and kind_norm != "desconhecido":
+        from hub.store import _slug_category
+
+        slug = _slug_category(kind_norm)
+        kind_norm = slug if slug in type_sides else "desconhecido"
     cat = (category or "outros").lower()
     from hub.schema import FINANCE_CATEGORIES
+    from hub.store import _slug_category
 
-    if cat not in FINANCE_CATEGORIES:
-        cat = "renda" if kind_norm == "receita" else "outros"
+    known = {row["id"] for row in store.list_finance_categories()}
+    known.update(FINANCE_CATEGORIES)
+    income = type_sides.get(kind_norm) == "entrada" or kind_norm == "receita"
+    if cat not in known:
+        slug = _slug_category(cat)
+        cat = slug if slug in known else ("renda" if income else "outros")
     fact = FinancialFact(
         amount=amount,
         merchant=merchant,
         due_at=due_at,
         occurred_at=occurred_at or due_at,
         category=cat,
-        kind=kind_norm,  # type: ignore[assignment]
+        kind=kind_norm,
         barcode=barcode,
     )
     item.financials.append(fact)
     item.financial = fact
     item.folder = "Financas"
     item.kind = "finance"
-    if kind_norm == "receita":
+    if income:
         item.subfolder = item.subfolder or "Receitas"
     elif kind_norm == "boleto":
         item.subfolder = item.subfolder or "Boletos"

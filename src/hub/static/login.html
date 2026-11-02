@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Hub · private</title>
+  <link rel="stylesheet" href="/static/app.css?v=13"/>
+</head>
+<body class="login-body">
+  <main class="login-card">
+    <div class="brand">
+      <span class="mark">H</span>
+      <div>
+        <strong>Hub</strong>
+        <small>private archive</small>
+      </div>
+    </div>
+    <p class="login-copy">This dashboard is private. Enter your access code.</p>
+    <p id="loginError" class="login-error" hidden>Wrong code. Try again.</p>
+    <form method="post" action="/auth/login">
+      <label>
+        <span>Access code</span>
+        <input type="password" name="code" autocomplete="current-password" required autofocus/>
+      </label>
+      <button type="submit" class="primary">Enter</button>
+    </form>
+  </main>
+  <script>
+    if (new URLSearchParams(location.search).get("e")) {
+      const el = document.getElementById("loginError");
+      el.hidden = false;
+    }
+  </script>
+</body>
+</html>

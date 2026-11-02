@@ -10,7 +10,6 @@ from google.genai import types
 from hub.agent import root_agent
 from hub.classify import extract_url
 from hub.config import APP_NAME, ensure_gemini_env
-from hub.extras import classify_with_gemma
 from hub.links import fetch_url_context
 
 ensure_gemini_env()
@@ -63,14 +62,6 @@ async def run_hub(
                 "do snippet se houver. Se nao der para ler o email da vaga, peca "
                 "para colar o texto do post. Nao invente email.\n"
             )
-
-    filing = classify_with_gemma(text, media_hint=mime_type or "")
-    if filing.get("status") == "ok":
-        extra += (
-            "\n\n[Gemma filing — use como pista, corrija se errado]\n"
-            f"folder={filing.get('folder')} subfolder={filing.get('subfolder')} "
-            f"kind={filing.get('kind')} tags={filing.get('tags')}\n"
-        )
 
     preamble = (
         f"[system] user_id={user_id} item_id={item_id}\n"

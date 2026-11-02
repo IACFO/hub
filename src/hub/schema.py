@@ -55,7 +55,7 @@ SUBFOLDER_SEEDS = {
     "Fotos": ["Selfies", "Prints", "Capas", "Pessoal"],
     "Ideias": ["Pessoal", "Profissional", "Andamento", "Insights", "Curiosidades"],
     "Links": ["Vagas", "Entretenimento", "Curiosidades", "Noticias"],
-    "Financas": ["Gastos", "Receitas", "Boletos"],
+    "Financas": ["Gastos", "Receitas", "Boletos", "Contas"],
 }
 
 FINANCE_CATEGORIES = (
@@ -66,6 +66,12 @@ FINANCE_CATEGORIES = (
     "renda",
     "lazer",
     "outros",
+)
+
+FINANCE_TYPES = (
+    ("receita", "entrada"),
+    ("gasto", "saida"),
+    ("boleto", "saida"),
 )
 
 FOLDER_FROM_CATEGORY = {
@@ -118,7 +124,9 @@ class FinancialFact(BaseModel):
     due_at: str | None = None
     occurred_at: str | None = None
     category: str = "outros"
-    kind: Literal["gasto", "boleto", "receita", "desconhecido"] = "desconhecido"
+    kind: str = "desconhecido"
+    bill_status: str = ""
+    paid_at: str | None = None
     barcode: str | None = None
 
 

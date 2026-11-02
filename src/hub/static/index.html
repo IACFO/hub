@@ -4,9 +4,10 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hub</title>
-  <link rel="stylesheet" href="/static/app.css?v=7"/>
+  <link rel="stylesheet" href="/static/app.css?v=20"/>
 </head>
 <body>
+  <div id="readOnlyBanner" class="readonly-banner" hidden>Public demo · read-only</div>
   <button type="button" class="menu-btn" id="menuBtn" aria-label="Open folders">☰</button>
   <div class="lang-toggle lang-toggle-bar" id="langToggleBar" role="group" aria-label="Language">
     <button type="button" data-lang="en" class="active">EN</button>
@@ -28,8 +29,10 @@
     <nav class="views" id="views"></nav>
     <nav id="folders" class="folders"></nav>
     <nav id="subfolders" class="chips"></nav>
-    <div class="rail-foot" id="railFoot">
-      Capture on Telegram<br/>Action on Calendar
+    <div class="rail-foot">
+      <form class="logout-form" method="post" action="/auth/logout" id="logoutForm" hidden>
+        <button type="submit" id="btnLogout">Log out</button>
+      </form>
     </div>
   </aside>
   <main>
@@ -41,14 +44,14 @@
       <h1 class="page-title" id="pageTitle" hidden></h1>
       <div class="filters" id="statusFilters"></div>
     </header>
-    <div class="makebar" id="makeBar">
-      <button type="button" id="btnRecap">Week video</button>
-      <button type="button" id="btnTheme">Week audio</button>
-      <span class="makebar-status" id="genStatus"></span>
+    <div class="capturebar" id="captureBar" hidden>
+      <button type="button" id="btnUpload">Upload</button>
+      <input id="fileInput" type="file" multiple hidden/>
+      <span class="capturebar-status" id="uploadStatus"></span>
     </div>
     <section id="workspace" class="grid"></section>
   </main>
   <aside id="drawer" class="drawer hidden" hidden></aside>
-  <script src="/static/app.js?v=7"></script>
+  <script src="/static/app.js?v=22"></script>
 </body>
 </html>
