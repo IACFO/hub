@@ -252,6 +252,14 @@ body.dropping .capturebar {
   gap: 8px;
   padding-bottom: 8px;
 }
+.bills-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
 .ledger-form input, .ledger-form select {
   background: var(--bg-2);
   border: 1px solid var(--line);

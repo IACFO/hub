@@ -1,5 +1,9 @@
 const ALL = "Tudo";
 
+function readPref(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
 const state = {
   items: [],
   folder: ALL,
@@ -17,6 +21,7 @@ const state = {
   financeMonth: "",
   payableEdit: null,
   payableDraft: null,
+  payablesOpenOnly: readPref("hub_bills_open_only") === "1",
   reports: null,
   accounting: null,
   accountingTab: "calc",
@@ -93,6 +98,7 @@ const I18N = {
     savePayable: "Save bill",
     deletePayableConfirm: "Delete this bill?",
     noPayables: "No bills in this month.",
+    onlyOpenBills: "Only open bills",
     paidOn: "Paid on",
     recurring: "Recurring",
     recurringMonths: "Months",
@@ -259,6 +265,7 @@ const I18N = {
     savePayable: "Salvar conta",
     deletePayableConfirm: "Excluir esta conta?",
     noPayables: "Nenhuma conta neste mês.",
+    onlyOpenBills: "Somente a vencer",
     paidOn: "Pago em",
     recurring: "Recorrente",
     recurringMonths: "Meses",
@@ -866,7 +873,8 @@ function renderPayables(data) {
   const d = dict();
   const ro = state.readOnly;
   const editing = state.payableEdit;
-  const bills = visiblePayables(data);
+  const monthBills = visiblePayables(data);
+  const bills = state.payablesOpenOnly ? monthBills.filter((row) => row.status === "aberto") : monthBills;
   const selected = editing && (data.payables || []).find((row) => row.item_id === editing.item_id && row.fact_id === editing.fact_id);
   const selectedCat = (state.payableDraft && state.payableDraft.category) || (selected && selected.category) || "";
   const catOpts = categoryOptions(selectedCat);
@@ -914,12 +922,18 @@ function renderPayables(data) {
       <div class="stat"><span>${escapeHtml(d.payablesTotal)}</span><strong class="expense">${escapeHtml(brl(openSum))}</strong></div>
     </div>
     ${form}
+    <label class="checkline bills-filter"><input type="checkbox" id="billsOpenOnly" ${state.payablesOpenOnly ? "checked" : ""}/> ${escapeHtml(d.onlyOpenBills)}</label>
     <div class="table-wrap">
       <table>
         <thead><tr><th>${d.dueDate}</th><th>${d.description}</th><th>${d.category}</th><th>${d.billStatus}</th><th>${d.amount}</th>${ro ? "" : `<th class="ops"></th>`}</tr></thead>
         <tbody>${rows || `<tr><td colspan="${ro ? 5 : 6}">${escapeHtml(d.noPayables)}</td></tr>`}</tbody>
       </table>
     </div>`;
+  document.getElementById("billsOpenOnly").onchange = (ev) => {
+    state.payablesOpenOnly = ev.target.checked;
+    try { localStorage.setItem("hub_bills_open_only", ev.target.checked ? "1" : "0"); } catch {}
+    renderPayables(data);
+  };
   if (!ro) bindPayableForm(data);
 }
 
