@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hub</title>
-  <link rel="stylesheet" href="/static/app.css?v=20"/>
+  <link rel="stylesheet" href="/static/app.css?v=21"/>
 </head>
 <body>
   <div id="readOnlyBanner" class="readonly-banner" hidden>Public demo · read-only</div>
@@ -28,7 +28,6 @@
     </div>
     <nav class="views" id="views"></nav>
     <nav id="folders" class="folders"></nav>
-    <nav id="subfolders" class="chips"></nav>
     <div class="rail-foot">
       <form class="logout-form" method="post" action="/auth/logout" id="logoutForm" hidden>
         <button type="submit" id="btnLogout">Log out</button>
@@ -45,13 +44,18 @@
       <div class="filters" id="statusFilters"></div>
     </header>
     <div class="capturebar" id="captureBar" hidden>
+      <form class="link-form" id="linkForm" hidden>
+        <input id="linkUrl" type="text" inputmode="url" autocomplete="off" placeholder="https://"/>
+        <button type="submit" id="btnSaveLink">Save link</button>
+      </form>
       <button type="button" id="btnUpload">Upload</button>
       <input id="fileInput" type="file" multiple hidden/>
       <span class="capturebar-status" id="uploadStatus"></span>
     </div>
+    <nav id="subfolders" class="chips subfolder-bar"></nav>
     <section id="workspace" class="grid"></section>
   </main>
   <aside id="drawer" class="drawer hidden" hidden></aside>
-  <script src="/static/app.js?v=22"></script>
+  <script src="/static/app.js?v=23"></script>
 </body>
 </html>

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -53,6 +55,11 @@ class ItemPatch(BaseModel):
 
 class CheckPatch(BaseModel):
     checked: bool
+
+
+class LinkCreate(BaseModel):
+    url: str
+    subfolder: str = ""
 
 
 class FolderCreate(BaseModel):
@@ -331,6 +338,46 @@ async def api_upload(request: Request) -> dict:
     if not created:
         raise HTTPException(400, "No readable files")
     return {"ok": True, "count": len(created), "items": [item.model_dump() for item in created]}
+
+
+@app.post("/api/links")
+async def api_create_link(body: LinkCreate) -> dict:
+    """Save a pasted URL straight into Links (no Gemini call). Duplicates move to the subfolder."""
+    from hub.dedupe import find_link_duplicate
+    from hub.links import fetch_url_context
+
+    url = body.url.strip()
+    if url and "://" not in url:
+        url = f"https://{url}"
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or "." not in (parsed.hostname or ""):
+        raise HTTPException(400, "invalid url")
+    subfolder = body.subfolder.strip()
+    user_id = HUB_OWNER_EMAIL or "owner"
+    existing = find_link_duplicate(user_id, url=url, text=url)
+    if existing is not None:
+        existing.folder = "Links"
+        if subfolder:
+            existing.subfolder = subfolder
+        store.upsert(existing)
+        return {"ok": True, "duplicate": True, "item": existing.model_dump()}
+    ctx = await asyncio.to_thread(fetch_url_context, url)
+    host = (parsed.hostname or "").removeprefix("www.")
+    item = InboxItem(
+        user_id=user_id,
+        source="web",
+        media_type="link",
+        kind="link",
+        status="active",
+        folder="Links",
+        subfolder=subfolder,
+        url=url,
+        title=(ctx.get("title") or host)[:160],
+        subtitle=(ctx.get("description") or host)[:200],
+        raw_text=url,
+    )
+    store.upsert(item)
+    return {"ok": True, "duplicate": False, "item": item.model_dump()}
 
 
 @app.patch("/api/items/{item_id}")

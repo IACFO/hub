@@ -1,4 +1,5 @@
 const ALL = "Tudo";
+const LINKS = "Links";
 
 function readPref(key) {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -118,6 +119,12 @@ const I18N = {
     upload: "Upload",
     uploading: "Uploading…",
     uploaded: (n) => (n === 1 ? "1 file saved" : `${n} files saved`),
+    linkPlaceholder: "Paste or type a link…",
+    saveLink: "Save link",
+    savingLink: "Saving…",
+    linkSaved: "Link saved",
+    linkMoved: "Link already saved — moved here",
+    linkInvalid: "That doesn't look like a link",
     loadingArchive: "Loading archive…",
     loadingFinance: "Loading P&L…",
     loadingReports: "Loading reports…",
@@ -285,6 +292,12 @@ const I18N = {
     upload: "Enviar arquivo",
     uploading: "Enviando…",
     uploaded: (n) => (n === 1 ? "1 arquivo salvo" : `${n} arquivos salvos`),
+    linkPlaceholder: "Cole ou digite um link…",
+    saveLink: "Salvar link",
+    savingLink: "Salvando…",
+    linkSaved: "Link salvo",
+    linkMoved: "Link já existia — movido para cá",
+    linkInvalid: "Isso não parece um link",
     loadingArchive: "Carregando arquivo…",
     loadingFinance: "Carregando P&L…",
     loadingReports: "Carregando relatórios…",
@@ -499,6 +512,10 @@ function applyChrome() {
   }
   const btnUpload = document.getElementById("btnUpload");
   if (btnUpload) btnUpload.textContent = d.upload;
+  const linkUrl = document.getElementById("linkUrl");
+  if (linkUrl) linkUrl.placeholder = d.linkPlaceholder;
+  const btnSaveLink = document.getElementById("btnSaveLink");
+  if (btnSaveLink) btnSaveLink.textContent = d.saveLink;
   document.querySelectorAll(".lang-toggle [data-lang]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.lang === state.lang);
   });
@@ -1925,6 +1942,10 @@ function render() {
   document.getElementById("statusFilters").hidden = !inboxMode;
   const captureBar = document.getElementById("captureBar");
   if (captureBar) captureBar.hidden = !inboxMode || state.readOnly;
+  // Links is for URLs: paste box instead of file upload.
+  const linksMode = state.folder === LINKS;
+  document.getElementById("linkForm").hidden = !linksMode;
+  document.getElementById("btnUpload").hidden = linksMode;
   const title = document.getElementById("pageTitle");
   title.hidden = inboxMode;
   title.textContent = ["finance", "reports", "accounting"].includes(state.view)
@@ -2033,6 +2054,28 @@ async function uploadFiles(fileList) {
   }
 }
 
+async function saveLink(ev) {
+  ev.preventDefault();
+  const input = document.getElementById("linkUrl");
+  const url = (input.value || "").trim();
+  if (!url || state.readOnly) return;
+  const status = document.getElementById("uploadStatus");
+  if (status) status.textContent = t("savingLink");
+  try {
+    const result = await api("/api/links", {
+      method: "POST",
+      body: JSON.stringify({ url, subfolder: state.subfolder || "" }),
+    });
+    input.value = "";
+    if (status) status.textContent = t(result.duplicate ? "linkMoved" : "linkSaved");
+    await refresh();
+    render();
+  } catch (err) {
+    const msg = err.message || String(err);
+    if (status) status.textContent = msg.includes("invalid url") ? t("linkInvalid") : msg;
+  }
+}
+
 async function refresh() {
   const meta = await api("/api/meta");
   state.folders = meta.folders;
@@ -2070,6 +2113,7 @@ async function boot() {
   });
   const fileInput = document.getElementById("fileInput");
   document.getElementById("btnUpload").onclick = () => fileInput.click();
+  document.getElementById("linkForm").addEventListener("submit", saveLink);
   fileInput.addEventListener("change", async (ev) => {
     await uploadFiles(ev.target.files);
     ev.target.value = "";
