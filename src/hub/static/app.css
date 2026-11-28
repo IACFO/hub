@@ -232,6 +232,42 @@ body.dropping .capturebar {
   font-variant-numeric: tabular-nums;
 }
 .page tbody tr:last-child td { border-bottom: 0; }
+.page .filter-row th { padding: 6px 8px; text-transform: none; letter-spacing: 0; }
+.filter-row input, .filter-row select {
+  width: 100%;
+  min-width: 90px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  padding: 5px 8px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12px;
+}
+.filter-row input:focus, .filter-row select:focus { outline: none; border-color: var(--accent); }
+.ledger-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ledger-filter-summary[hidden] { display: none; }
+.ledger-filter-summary button {
+  margin-left: auto;
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--muted);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.ledger-filter-summary button:hover { color: var(--ink); border-color: var(--accent); }
 .page tbody tr[data-id] { cursor: pointer; }
 .page tbody tr[data-id]:hover { background: var(--bg-2); }
 .page h2 { margin: 8px 0 10px; font-size: 15px; font-weight: 600; }

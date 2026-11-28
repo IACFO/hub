@@ -10,7 +10,7 @@ const state = {
   folder: ALL,
   subfolder: "",
   status: "open",
-  view: "inbox",
+  view: "finance",
   q: "",
   selected: null,
   folders: [],
@@ -19,6 +19,7 @@ const state = {
   financeEdit: null,
   financeDraft: null,
   financeTab: "ledger",
+  ledgerFilter: { date: "", kind: "", cat: "", desc: "", amount: "" },
   financeMonth: "",
   payableEdit: null,
   payableDraft: null,
@@ -145,6 +146,15 @@ const I18N = {
     description: "Description",
     amount: "Amount",
     noEntries: "No entries this month.",
+    filterAllTypes: "All",
+    filterIncome: "Income",
+    filterExpense: "Expenses",
+    filterAllCats: "All",
+    filterDesc: "Search…",
+    filterAmount: "Amount…",
+    clearFilters: "Clear filters",
+    noFilterMatch: "No entries match these filters.",
+    ledgerShown: (n, total) => `${n} of ${total} entries`,
     captures7d: "Captures · 7 days",
     pendingCal: "Pending Calendar",
     folders: "Folders",
@@ -152,7 +162,8 @@ const I18N = {
     noAgenda: "Nothing on the Agenda this week.",
     all: "All",
     allSub: "All",
-    views: { inbox: "Archive", finance: "Finance", accounting: "Accounting", reports: "Reports" },
+    // No "inbox" entry: the "All" folder already opens the archive.
+    views: { finance: "Finance", accounting: "Accounting", reports: "Reports" },
     status: { open: "Open", done: "Done", all: "All" },
     kinds: {
       note: "Note",
@@ -318,6 +329,15 @@ const I18N = {
     description: "Descrição",
     amount: "Valor",
     noEntries: "Sem lançamentos neste mês.",
+    filterAllTypes: "Todos",
+    filterIncome: "Entradas",
+    filterExpense: "Saídas",
+    filterAllCats: "Todas",
+    filterDesc: "Buscar…",
+    filterAmount: "Valor…",
+    clearFilters: "Limpar filtros",
+    noFilterMatch: "Nenhum lançamento com esses filtros.",
+    ledgerShown: (n, total) => `${n} de ${total} lançamentos`,
     captures7d: "Capturas · 7 dias",
     pendingCal: "Calendar pendente",
     folders: "Pastas",
@@ -325,7 +345,7 @@ const I18N = {
     noAgenda: "Nada na Agenda desta semana.",
     all: "Tudo",
     allSub: "Todas",
-    views: { inbox: "Arquivo", finance: "Finanças", accounting: "Contabilidade", reports: "Relatórios" },
+    views: { finance: "Finanças", accounting: "Contabilidade", reports: "Relatórios" },
     status: { open: "Abertos", done: "Concluídos", all: "Todos" },
     kinds: {
       note: "Nota",
@@ -636,7 +656,7 @@ function renderFolders(folders) {
     : `<button type="button" class="add-folder" id="btnNewFolder">${escapeHtml(t("newFolder"))}</button>`;
   document.getElementById("folders").innerHTML = names.map((name) => {
     const n = counts[name] || 0;
-    const active = state.folder === name ? "active" : "";
+    const active = state.view === "inbox" && state.folder === name ? "active" : "";
     const ops = state.readOnly || isProtectedFolder(name) ? "" : `
       <button type="button" class="icon-btn" data-rename-folder="${escapeHtml(name)}" title="${escapeHtml(t("rename"))}">✎</button>
       <button type="button" class="icon-btn danger" data-delete-folder="${escapeHtml(name)}" title="${escapeHtml(t("delete"))}">×</button>`;
@@ -838,7 +858,13 @@ function renderLedger(data) {
         <button type="button" class="icon-btn danger" data-del-entry="${row.item_id}:${row.fact_id}" title="${escapeHtml(d.delete)}">×</button>
       </td>`;
     return `
-    <tr data-id="${row.item_id}" data-fact="${row.fact_id || ""}">
+    <tr data-id="${row.item_id}" data-fact="${row.fact_id || ""}" data-entry
+      data-date="${escapeHtml((row.occurred_at || "").slice(0, 10))}"
+      data-kind="${escapeHtml(row.kind || "")}"
+      data-side="${isIncomeKind(row.kind) ? "in" : "out"}"
+      data-cat="${escapeHtml(row.category || "")}"
+      data-desc="${escapeHtml(`${row.merchant || ""} ${row.title || ""}`.toLowerCase())}"
+      data-amount="${Number(row.amount || 0).toFixed(2)}">
       <td>${escapeHtml((row.occurred_at || "").slice(0, 10))}</td>
       <td>${escapeHtml(typeLabel(row.kind))}</td>
       <td>${escapeHtml(catLabel(row.category))}</td>
@@ -877,11 +903,95 @@ function renderLedger(data) {
     ${form}
     <div class="table-wrap">
       <table>
-        <thead><tr><th>${d.date}</th><th>${d.type}</th><th>${d.category}</th><th>${d.description}</th><th>${d.amount}</th>${ro ? "" : `<th class="ops"></th>`}</tr></thead>
-        <tbody>${rows || `<tr><td colspan="${ro ? 5 : 6}">${escapeHtml(d.noEntries)}</td></tr>`}</tbody>
+        <thead>
+          <tr><th>${d.date}</th><th>${d.type}</th><th>${d.category}</th><th>${d.description}</th><th>${d.amount}</th>${ro ? "" : `<th class="ops"></th>`}</tr>
+          ${rows ? ledgerFilterRow(data, ro) : ""}
+        </thead>
+        <tbody>${rows || `<tr><td colspan="${ro ? 5 : 6}">${escapeHtml(d.noEntries)}</td></tr>`}
+          ${rows ? `<tr id="ledgerNoMatch" hidden><td colspan="${ro ? 5 : 6}">${escapeHtml(d.noFilterMatch)}</td></tr>` : ""}
+        </tbody>
       </table>
-    </div>`;
+    </div>
+    <div class="ledger-filter-summary" id="ledgerFilterSummary" hidden></div>`;
+  if (rows) bindLedgerFilter();
   if (!ro) bindFinanceForm(data);
+}
+
+function ledgerFilterRow(data, ro) {
+  const d = dict();
+  const opt = (value, label) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+  const entries = data.entries || [];
+  const kinds = [...new Set([...financeTypes().map((row) => row.id), ...entries.map((row) => row.kind)].filter(Boolean))];
+  const cats = [...new Set([...financeCategories().map((row) => row.id), ...entries.map((row) => row.category)].filter(Boolean))];
+  const kindOpts = [opt("", d.filterAllTypes), opt("@in", d.filterIncome), opt("@out", d.filterExpense),
+    ...kinds.map((id) => opt(id, typeLabel(id)))].join("");
+  const catOpts = [opt("", d.filterAllCats), ...cats.map((id) => opt(id, catLabel(id)))].join("");
+  return `
+    <tr class="filter-row" id="ledgerFilters">
+      <th><input type="date" data-filter="date"/></th>
+      <th><select data-filter="kind">${kindOpts}</select></th>
+      <th><select data-filter="cat">${catOpts}</select></th>
+      <th><input type="search" data-filter="desc" placeholder="${escapeHtml(d.filterDesc)}" autocomplete="off"/></th>
+      <th><input type="search" data-filter="amount" inputmode="decimal" placeholder="${escapeHtml(d.filterAmount)}" autocomplete="off"/></th>
+      ${ro ? "" : `<th class="ops"></th>`}
+    </tr>`;
+}
+
+function bindLedgerFilter() {
+  const bar = document.getElementById("ledgerFilters");
+  if (!bar) return;
+  bar.querySelectorAll("[data-filter]").forEach((el) => {
+    el.value = state.ledgerFilter[el.dataset.filter] || "";
+    el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
+      state.ledgerFilter[el.dataset.filter] = el.value;
+      applyLedgerFilter();
+    });
+  });
+  applyLedgerFilter();
+}
+
+function clearLedgerFilter() {
+  state.ledgerFilter = { date: "", kind: "", cat: "", desc: "", amount: "" };
+  document.querySelectorAll("#ledgerFilters [data-filter]").forEach((el) => { el.value = ""; });
+  applyLedgerFilter();
+}
+
+function applyLedgerFilter() {
+  const f = state.ledgerFilter;
+  const desc = f.desc.trim().toLowerCase();
+  // Amount matches on digits, so "120", "120,5" and "1.200" all work.
+  const amountDigits = f.amount.replace(/\D/g, "");
+  const rows = [...document.querySelectorAll("#financePanel tr[data-entry]")];
+  let shown = 0;
+  let income = 0;
+  let expense = 0;
+  for (const row of rows) {
+    const ds = row.dataset;
+    const ok = (!f.date || ds.date === f.date)
+      && (!f.kind || (f.kind === "@in" ? ds.side === "in" : f.kind === "@out" ? ds.side === "out" : ds.kind === f.kind))
+      && (!f.cat || ds.cat === f.cat)
+      && (!desc || ds.desc.includes(desc))
+      && (!amountDigits || ds.amount.replace(/\D/g, "").includes(amountDigits));
+    row.hidden = !ok;
+    if (!ok) continue;
+    shown += 1;
+    if (ds.side === "in") income += Number(ds.amount);
+    else expense += Number(ds.amount);
+  }
+  const active = Object.values(f).some((value) => value);
+  const noMatch = document.getElementById("ledgerNoMatch");
+  if (noMatch) noMatch.hidden = shown > 0;
+  const summary = document.getElementById("ledgerFilterSummary");
+  if (!summary) return;
+  summary.hidden = !active;
+  if (!active) return;
+  const d = dict();
+  summary.innerHTML = `
+    <span>${escapeHtml(d.ledgerShown(shown, rows.length))}</span>
+    <span class="income">${escapeHtml(d.filterIncome)}: ${escapeHtml(brl(income))}</span>
+    <span class="expense">${escapeHtml(d.filterExpense)}: ${escapeHtml(brl(expense))}</span>
+    <button type="button" id="ledgerClearFilters">${escapeHtml(d.clearFilters)}</button>`;
+  document.getElementById("ledgerClearFilters").onclick = clearLedgerFilter;
 }
 
 function renderPayables(data) {
@@ -1047,8 +1157,10 @@ function payableDraftFromForm() {
 function isFinanceFormBusy() {
   const ledger = document.getElementById("ledgerForm");
   const payable = document.getElementById("payableForm");
+  const filters = document.getElementById("ledgerFilters");
   const active = document.activeElement;
   if (ledger && ledger.contains(active)) return true;
+  if (filters && filters.contains(active)) return true;
   if (payable && payable.contains(active)) return true;
   return Boolean(state.financeDraft || state.payableDraft);
 }
@@ -2103,7 +2215,7 @@ async function boot() {
   if (["inbox", "finance", "accounting", "reports"].includes(view)) state.view = view;
   document.documentElement.lang = state.lang === "pt" ? "pt-BR" : "en";
   applyChrome();
-  workspace().innerHTML = `<p class="empty">${escapeHtml(t("loadingArchive"))}</p>`;
+  workspace().innerHTML = `<p class="empty">${escapeHtml(t(state.view === "inbox" ? "loadingArchive" : "loadingFinance"))}</p>`;
   document.getElementById("q").addEventListener("input", (ev) => {
     state.q = ev.target.value;
     render();
